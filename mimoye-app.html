@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIMOYE — Plateforme multiservices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1B2A2E;
+  --stone:#EDE9E1;
+  --paper:#F9F7F3;
+  --confiance:#2B4570;
+  --confiance-dim:#3E5C8A;
+  --artisan:#C97C2C;
+  --artisan-dim:#E0A25E;
+  --verifie:#3E7C59;
+  --danger:#B4432E;
+  --line:#DCD5C7;
+  --display: 'Space Grotesk', sans-serif;
+  --body: 'Inter', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:var(--body);
+  background:var(--paper);
+  color:var(--ink);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+#appView{display:flex;min-height:100vh;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+
+/* ===== SIDEBAR ===== */
+.sidebar{
+  width:272px;
+  flex-shrink:0;
+  background:var(--ink);
+  color:var(--paper);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  position:sticky;
+  top:0;
+}
+.brand{
+  padding:26px 22px 20px;
+  border-bottom:1px solid rgba(249,247,243,0.1);
+}
+.brand-mark{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:22px;
+  letter-spacing:0.5px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.brand-mark .seal{
+  width:26px;height:26px;
+  border-radius:50%;
+  border:2px solid var(--artisan);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--artisan);
+  font-family:var(--mono);
+  flex-shrink:0;
+}
+.brand-sub{
+  font-family:var(--mono);
+  font-size:10.5px;
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+  color:rgba(249,247,243,0.45);
+  margin-top:6px;
+  margin-left:36px;
+}
+.role-switch{
+  display:flex;
+  gap:6px;
+  padding:16px 16px 14px;
+  border-bottom:1px solid rgba(249,247,243,0.1);
+}
+.role-btn{
+  flex:1;
+  padding:9px 4px;
+  border-radius:7px;
+  font-size:11.5px;
+  font-weight:600;
+  color:rgba(249,247,243,0.55);
+  text-align:center;
+  transition:all .15s ease;
+  font-family:var(--body);
+}
+.role-btn.active{
+  background:var(--paper);
+  color:var(--ink);
+}
+.role-btn:not(.active):hover{
+  background:rgba(249,247,243,0.08);
+  color:var(--paper);
+}
+.nav-list{
+  flex:1;
+  padding:18px 14px;
+  overflow-y:auto;
+}
+.nav-label{
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+  color:rgba(249,247,243,0.4);
+  padding:0 10px 10px;
+}
+.nav-item{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  width:100%;
+  padding:10px 12px;
+  border-radius:8px;
+  font-size:13.5px;
+  font-weight:500;
+  color:rgba(249,247,243,0.7);
+  margin-bottom:2px;
+  text-align:left;
+  transition:all .12s ease;
+}
+.nav-item .num{
+  font-family:var(--mono);
+  font-size:10.5px;
+  color:rgba(249,247,243,0.35);
+  width:16px;
+  flex-shrink:0;
+}
+.nav-item:hover{background:rgba(249,247,243,0.06);color:var(--paper);}
+.nav-item.active{
+  background:var(--confiance);
+  color:#fff;
+}
+.nav-item.active .num{color:rgba(255,255,255,0.6);}
+.sidebar-foot{
+  padding:16px 22px 20px;
+  font-family:var(--mono);
+  font-size:10px;
+  color:rgba(249,247,243,0.35);
+  border-top:1px solid rgba(249,247,243,0.1);
+  letter-spacing:0.3px;
+}
+
+/* ===== MAIN ===== */
+main{
+  flex:1;
+  min-width:0;
+  padding:0;
+}
+.topbar{
+  padding:24px 44px 18px;
+  border-bottom:1px solid var(--line);
+  background:var(--paper);
+  position:sticky;
+  top:0;
+  z-index:5;
+}
+.chemin{
+  font-family:var(--mono);
+  font-size:11.5px;
+  color:var(--confiance);
+  letter-spacing:0.3px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.chemin .seg{opacity:0.9;}
+.chemin .sep{color:var(--artisan);}
+.screen-title{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:26px;
+  margin-top:8px;
+  letter-spacing:-0.3px;
+}
+.screen-desc{
+  font-size:13.5px;
+  color:#6b6459;
+  margin-top:4px;
+  max-width:640px;
+}
+.content{
+  padding:32px 44px 64px;
+  max-width:1180px;
+}
+
+/* ===== COMPONENTS ===== */
+.card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:20px;
+}
+.grid{display:grid;gap:16px;}
+.grid-2{grid-template-columns:1fr 1fr;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+
+.stamp{
+  width:56px;height:56px;
+  border-radius:50%;
+  border:2px solid var(--verifie);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--verifie);
+  font-family:var(--mono);
+  transform:rotate(-8deg);
+  flex-shrink:0;
+  position:relative;
+}
+.stamp::before{
+  content:'';
+  position:absolute;
+  inset:5px;
+  border:1px dashed var(--verifie);
+  border-radius:50%;
+  opacity:0.5;
+}
+.stamp .s-top{font-size:6.5px;letter-spacing:1px;font-weight:700;}
+.stamp .s-mid{font-size:8px;font-weight:700;margin-top:1px;}
+.stamp.pending{border-color:var(--artisan);color:var(--artisan);}
+.stamp.pending::before{border-color:var(--artisan);}
+.stamp.unverified{border-color:#b8b0a0;color:#b8b0a0;}
+.stamp.unverified::before{border-color:#b8b0a0;}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-family:var(--mono);
+  font-size:10.5px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:20px;
+  letter-spacing:0.3px;
+}
+.badge-verifie{background:rgba(62,124,89,0.12);color:var(--verifie);}
+.badge-attente{background:rgba(201,124,44,0.14);color:var(--artisan);}
+.badge-neutre{background:var(--stone);color:#6b6459;}
+.badge-danger{background:rgba(180,67,46,0.12);color:var(--danger);}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:11px 20px;
+  border-radius:8px;
+  font-weight:600;
+  font-size:13.5px;
+  transition:all .12s ease;
+}
+.btn-primary{background:var(--confiance);color:#fff;}
+.btn-primary:hover{background:var(--confiance-dim);}
+.btn-secondary{background:var(--stone);color:var(--ink);}
+.btn-secondary:hover{background:#e3ddcd;}
+.btn-artisan{background:var(--artisan);color:#fff;}
+.btn-artisan:hover{background:var(--artisan-dim);}
+.btn-ghost{border:1px solid var(--line);color:var(--ink);}
+.btn-ghost:hover{background:var(--stone);}
+.btn-sm{padding:7px 13px;font-size:12px;border-radius:7px;}
+.btn-block{width:100%;justify-content:center;}
+
+label.field-label{
+  display:block;font-size:12px;font-weight:600;color:#6b6459;margin-bottom:6px;
+  font-family:var(--mono);letter-spacing:0.2px;
+}
+select, input[type=text], input[type=date], textarea{
+  width:100%;
+  padding:11px 13px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-family:var(--body);
+  font-size:13.5px;
+  color:var(--ink);
+  background:#fff;
+}
+textarea{resize:vertical;min-height:90px;}
+.field{margin-bottom:16px;}
+
+.pro-card{
+  display:flex;gap:14px;
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  align-items:flex-start;
+}
+.avatar{
+  width:52px;height:52px;border-radius:10px;
+  background:linear-gradient(135deg,var(--confiance),var(--confiance-dim));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:var(--display);font-weight:700;font-size:17px;
+  flex-shrink:0;
+}
+.stars{color:var(--artisan);font-size:12.5px;letter-spacing:1px;}
+
+.stepper{display:flex;align-items:center;margin-bottom:28px;}
+.step{
+  display:flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-size:11.5px;color:#b8b0a0;
+}
+.step.done{color:var(--verifie);}
+.step.current{color:var(--confiance);font-weight:700;}
+.step .dot{
+  width:22px;height:22px;border-radius:50%;
+  border:2px solid currentColor;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;
+}
+.step-line{flex:1;height:1px;background:var(--line);margin:0 10px;min-width:20px;}
+
+.kpi{
+  padding:18px 20px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+}
+.kpi .num{font-family:var(--display);font-weight:700;font-size:28px;}
+.kpi .lbl{font-family:var(--mono);font-size:10.5px;color:#6b6459;letter-spacing:0.4px;text-transform:uppercase;margin-top:4px;}
+.kpi .delta{font-size:11.5px;margin-top:6px;font-weight:600;}
+.delta.up{color:var(--verifie);}
+.delta.down{color:var(--danger);}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{
+  font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;
+  color:#6b6459;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);
+}
+td{padding:12px;border-bottom:1px solid var(--line);}
+tr:last-child td{border-bottom:none;}
+
+.taxo-tree{font-size:13.5px;}
+.taxo-level0{font-family:var(--display);font-weight:700;font-size:14.5px;margin-top:14px;padding:8px 10px;background:var(--stone);border-radius:7px;}
+.taxo-level1{padding:9px 10px 9px 26px;border-left:2px solid var(--line);margin-left:10px;}
+.taxo-level2{padding:6px 10px 6px 40px;color:#6b6459;font-size:12.5px;}
+.taxo-row{display:flex;justify-content:space-between;align-items:center;}
+
+.chat-mock{border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+.chat-msg{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--line);}
+.chat-msg.me{background:rgba(43,69,112,0.05);}
+.chat-msg .who{font-family:var(--mono);font-size:10px;color:#6b6459;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.3px;}
+
+.section-gap{margin-top:28px;}
+.hr-note{
+  font-size:12px;color:#6b6459;margin-top:8px;
+}
+.pay-option{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:10px;
+  cursor:pointer;
+}
+.pay-option.selected{border-color:var(--confiance);background:rgba(43,69,112,0.04);}
+.pay-option input{width:16px;height:16px;accent-color:var(--confiance);}
+
+.tag{
+  display:inline-block;font-size:11.5px;font-weight:600;padding:4px 10px;
+  background:var(--stone);border-radius:6px;margin:0 6px 6px 0;color:var(--ink);
+}
+.star-input{display:flex;gap:6px;font-size:26px;color:var(--artisan);margin:10px 0 16px;cursor:default;}
+
+.hero-search{
+  background:var(--ink);color:var(--paper);
+  border-radius:16px;padding:36px 38px;
+  margin-bottom:28px;
+}
+.hero-search h2{font-family:var(--display);font-size:24px;font-weight:700;margin-bottom:6px;}
+.hero-search p{font-size:13.5px;color:rgba(249,247,243,0.6);margin-bottom:22px;max-width:480px;}
+.search-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;}
+.search-row select{background:rgba(249,247,243,0.08);border-color:rgba(249,247,243,0.18);color:var(--paper);}
+.search-row select option{color:#000;}
+
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px;}
+.cat-tile{
+  padding:16px;border:1px solid var(--line);border-radius:11px;background:#fff;
+  font-size:12.5px;font-weight:600;text-align:center;
+}
+.cat-tile .icon{font-size:22px;display:block;margin-bottom:8px;}
+
+.filters-bar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.filter-chip{
+  padding:7px 13px;border:1px solid var(--line);border-radius:20px;font-size:12px;font-weight:600;
+  background:#fff;color:#6b6459;
+}
+.filter-chip.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+.timeline{position:relative;padding-left:26px;}
+.timeline::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line);}
+.tl-item{position:relative;padding-bottom:24px;}
+.tl-item::before{
+  content:'';position:absolute;left:-26px;top:2px;width:14px;height:14px;border-radius:50%;
+  background:var(--stone);border:2px solid var(--line);
+}
+.tl-item.done::before{background:var(--verifie);border-color:var(--verifie);}
+.tl-item.current::before{background:var(--confiance);border-color:var(--confiance);box-shadow:0 0 0 4px rgba(43,69,112,0.15);}
+.tl-time{font-family:var(--mono);font-size:10.5px;color:#6b6459;}
+.tl-title{font-weight:600;font-size:13.5px;margin-top:2px;}
+
+@media (max-width:900px){
+  .grid-4{grid-template-columns:repeat(2,1fr);}
+  .grid-3{grid-template-columns:repeat(2,1fr);}
+  .grid-2{grid-template-columns:1fr;}
+  .search-row{grid-template-columns:1fr;}
+  .cat-grid{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ===== PUBLIC SITE (LANDING) ===== */
+#landingView{background:var(--paper);}
+.pub-header{
+  position:sticky;top:0;z-index:20;background:rgba(249,247,243,0.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);
+}
+.pub-header-inner{
+  max-width:1180px;margin:0 auto;padding:16px 32px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.pub-nav{display:flex;gap:26px;font-size:13.5px;font-weight:600;color:#4a453d;}
+.pub-nav a:hover{color:var(--confiance);}
+
+.pub-hero{padding:64px 32px 20px;}
+.pub-hero-inner{
+  max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.15fr 0.85fr;gap:56px;align-items:center;
+}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--artisan);font-weight:600;margin-bottom:14px;
+}
+.pub-hero-copy h1{
+  font-family:var(--display);font-weight:700;font-size:41px;line-height:1.12;letter-spacing:-0.5px;color:var(--ink);
+}
+.pub-hero-copy p{font-size:15px;color:#4a453d;line-height:1.6;margin-top:18px;max-width:480px;}
+.pub-hero-search{
+  display:grid;grid-template-columns:1fr 1fr auto;gap:9px;margin-top:28px;
+  background:#fff;padding:10px;border-radius:12px;border:1px solid var(--line);
+}
+.pub-hero-search select{border-color:var(--line);}
+.pub-hero-stats{display:flex;gap:32px;margin-top:30px;}
+.pub-hero-stats div{display:flex;flex-direction:column;}
+.pub-hero-stats b{font-family:var(--display);font-size:21px;font-weight:700;color:var(--ink);}
+.pub-hero-stats span{font-size:11.5px;color:#6b6459;margin-top:2px;}
+
+.pub-hero-visual{position:relative;display:flex;align-items:center;justify-content:center;}
+.pub-hero-card{
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;width:260px;
+  box-shadow:0 24px 60px -20px rgba(27,42,46,0.25);
+}
+.pub-hero-stamp{position:absolute;top:-18px;right:18px;transform:rotate(8deg);filter:drop-shadow(0 8px 16px rgba(27,42,46,0.18));}
+
+.pub-section{padding:72px 32px;}
+.pub-section.alt{background:var(--stone);}
+.pub-section-inner{max-width:1180px;margin:0 auto;}
+.pub-section h2{font-family:var(--display);font-weight:700;font-size:29px;color:var(--ink);letter-spacing:-0.3px;max-width:620px;}
+.pub-lead{font-size:14.5px;color:#4a453d;line-height:1.65;max-width:640px;margin-top:14px;}
+
+.pub-step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;}
+.pub-step-num{font-family:var(--mono);font-size:12px;color:var(--artisan);font-weight:700;margin-bottom:12px;}
+.pub-step h3{font-family:var(--display);font-size:16px;font-weight:700;margin-bottom:8px;}
+.pub-step p{font-size:13px;color:#6b6459;line-height:1.55;}
+
+.pub-trust-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;}
+.pub-trust-card b{font-family:var(--display);font-size:14.5px;display:block;margin-bottom:6px;}
+.pub-trust-card p{font-size:12px;color:#6b6459;line-height:1.5;}
+
+.pub-cta{display:grid;grid-template-columns:1.3fr 0.7fr;gap:40px;align-items:center;}
+.pub-mini-stats{display:flex;flex-direction:column;gap:14px;}
+
+.pub-footer{background:var(--ink);color:rgba(249,247,243,0.7);padding:52px 32px 26px;}
+.pub-footer-inner{max-width:1180px;margin:0 auto;}
+.pub-footer .brand-mark{color:#fff;margin-bottom:30px;}
+.pub-footer-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding-bottom:30px;border-bottom:1px solid rgba(249,247,243,0.12);}
+.pub-footer-cols b{display:block;color:#fff;font-size:12.5px;margin-bottom:14px;font-family:var(--mono);letter-spacing:0.4px;text-transform:uppercase;}
+.pub-footer-cols a{display:block;font-size:13px;color:rgba(249,247,243,0.6);margin-bottom:10px;}
+.pub-footer-cols a:hover{color:#fff;}
+.pub-footer-bottom{font-size:11.5px;color:rgba(249,247,243,0.4);padding-top:22px;}
+
+@media (max-width:860px){
+  .pub-hero-inner{grid-template-columns:1fr;}
+  .pub-hero-copy h1{font-size:31px;}
+  .pub-nav{display:none;}
+  .pub-cta{grid-template-columns:1fr;}
+  .pub-footer-cols{grid-template-columns:1fr;}
+}
+</style>
+.authbox{max-width:420px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:32px;}
+.authbox h2{font-family:var(--display);font-size:21px;font-weight:700;margin-bottom:6px;}
+.authbox .sub{font-size:12.5px;color:#6b6459;margin-bottom:22px;}
+.authtabs{display:flex;gap:8px;margin-bottom:22px;background:var(--stone);padding:4px;border-radius:9px;}
+.authtabs button{flex:1;padding:8px;border-radius:6px;font-size:12.5px;font-weight:600;color:#6b6459;}
+.authtabs button.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.08);}
+.err-box{background:rgba(180,67,46,0.08);color:var(--danger);border:1px solid rgba(180,67,46,0.25);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;}
+.ok-box{background:rgba(62,124,89,0.08);color:var(--verifie);border:1px solid rgba(62,124,89,0.25);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;}
+.pub-header-auth{display:flex;gap:10px;align-items:center;}
+.user-chip{font-size:12.5px;font-weight:600;color:#4a453d;display:flex;align-items:center;gap:8px;}
+.role-pill{font-family:var(--mono);font-size:10px;background:var(--stone);padding:3px 8px;border-radius:12px;letter-spacing:0.3px;}
+</head>
+<body>
+
+<!-- ================= PUBLIC HEADER ================= -->
+<header class="pub-header" id="pubHeader">
+  <div class="pub-header-inner">
+    <div class="brand-mark" style="color:var(--ink);cursor:pointer;" onclick="goHome()"><span class="seal" style="border-color:var(--artisan);color:var(--artisan);">M</span>MIMOYE</div>
+    <div class="pub-header-auth" id="headerAuthArea"></div>
+  </div>
+</header>
+
+<!-- ================= LANDING (visible si non connecté) ================= -->
+<div id="landingView">
+  <section class="pub-hero">
+    <div class="pub-hero-inner">
+      <div class="pub-hero-copy">
+        <div class="eyebrow">Plateforme multiservices ivoirienne</div>
+        <h1>Un professionnel vérifié pour chaque besoin, en quelques minutes.</h1>
+        <p>MIMOYE met en relation particuliers, entreprises et administrations avec des professionnels de services — dépannage, réparation, maintenance et bien plus — à Abidjan et partout en Côte d'Ivoire.</p>
+        <div style="display:flex;gap:12px;margin-top:26px;">
+          <button class="btn btn-primary" onclick="showAuth('register','client')">Trouver un professionnel</button>
+          <button class="btn btn-artisan" onclick="showAuth('register','pro')">Devenir professionnel MIMOYE</button>
+        </div>
+      </div>
+      <div class="pub-hero-visual">
+        <div class="pub-hero-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="avatar" style="width:42px;height:42px;font-size:14px;">KY</div>
+              <div><div style="font-weight:700;font-size:13.5px;">Kouadio Yao</div><div style="font-size:11.5px;color:#6b6459;">Plombier · Cocody</div></div>
+            </div>
+            <span class="badge badge-verifie">● Vérifié</span>
+          </div>
+          <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+          <div style="font-size:12.5px;color:#4a453d;">« Fuite au niveau du raccord évier, intervention rapide souhaitée. »</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+            <span class="stars">★★★★★</span>
+            <span style="font-family:var(--mono);font-size:11.5px;">12 000 FCFA</span>
+          </div>
+        </div>
+        <div class="pub-hero-stamp">
+          <div class="stamp" style="width:74px;height:74px;background:#fff;"><span class="s-top">MIMOYE</span><span class="s-mid">VÉRIFIÉ</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="pub-section alt">
+    <div class="pub-section-inner" style="text-align:center;">
+      <div class="eyebrow">Compte administrateur</div>
+      <p class="pub-lead" style="margin:0 auto;">Accès réservé à l'équipe MIMOYE.</p>
+      <button class="btn btn-ghost btn-sm section-gap" onclick="showAuth('login','admin')">Connexion administrateur</button>
+    </div>
+  </section>
+</div>
+
+<!-- ================= AUTH ================= -->
+<div id="authView" style="display:none;">
+  <div class="authbox">
+    <div class="authtabs" id="authTabs">
+      <button id="tabLogin" onclick="setAuthTab('login')">Connexion</button>
+      <button id="tabRegister" onclick="setAuthTab('register')">Créer un compte</button>
+    </div>
+    <div id="authContent"></div>
+  </div>
+</div>
+
+<!-- ================= APPLICATION ================= -->
+<div id="appView" style="display:none;">
+<nav class="sidebar">
+  <div class="brand">
+    <div class="brand-mark" style="cursor:pointer;" onclick="goHome()">‹ <span class="seal">M</span>MIMOYE</div>
+    <div class="brand-sub" id="sidebarSub">—</div>
+  </div>
+  <div class="nav-list" id="navList"></div>
+  <div class="sidebar-foot">Secteur → Catégorie → Métier<br>Spécialité → Prestation → Pro</div>
+</nav>
+<main>
+  <div class="topbar">
+    <div class="chemin" id="chemin"></div>
+    <div class="screen-title" id="screenTitle"></div>
+    <div class="screen-desc" id="screenDesc"></div>
+  </div>
+  <div class="content" id="content"></div>
+</main>
+</div>
+
+<script>
+// =====================================================================
+// COUCHE API (fetch vers le backend Node — session par cookie HttpOnly)
+// =====================================================================
+async function api(path, opts) {
+  opts = opts || {};
+  const res = await fetch(path, Object.assign({
+    credentials: "include",
+    headers: { "Content-Type": "application/json" }
+  }, opts));
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) { const err = new Error(data.error || ("Erreur " + res.status)); err.data = data; throw err; }
+  return data;
+}
+function apiPost(path, body) { return api(path, { method: "POST", body: JSON.stringify(body || {}) }); }
+
+let currentUser = null; // { id, email, role, name, phone }
+let state = { screen: null, selectedProId: null, cache: {} };
+
+// =====================================================================
+// NAVIGATION HAUT NIVEAU
+// =====================================================================
+function showView(id) {
+  ["landingView", "authView", "appView"].forEach(v => document.getElementById(v).style.display = "none");
+  document.getElementById(id).style.display = (id === "appView") ? "flex" : "block";
+  document.body.style.display = (id === "appView") ? "flex" : "block";
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  if (currentUser) { enterAppForRole(currentUser.role); }
+  else { showView("landingView"); renderHeader(); }
+}
+
+async function checkAuth() {
+  const data = await api("/api/auth/me");
+  if (data.authenticated) {
+    currentUser = data.user;
+    enterAppForRole(currentUser.role);
+  } else {
+    currentUser = null;
+    showView("landingView");
+  }
+  renderHeader();
+}
+
+function renderHeader() {
+  const el = document.getElementById("headerAuthArea");
+  if (currentUser) {
+    el.innerHTML = `
+      <span class="user-chip">${currentUser.name} <span class="role-pill">${roleLabel(currentUser.role)}</span></span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Se déconnecter</button>`;
+  } else {
+    el.innerHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="showAuth('login')">Se connecter</button>
+      <button class="btn btn-primary btn-sm" onclick="showAuth('register')">Créer un compte</button>`;
+  }
+}
+function roleLabel(r) { return { client: "Client", pro: "Professionnel", entreprise: "Entreprise", admin: "Admin" }[r] || r; }
+
+// =====================================================================
+// AUTH : formulaires
+// =====================================================================
+let authTab = "login";
+let authRolePreset = null;
+function showAuth(tab, rolePreset) {
+  authRolePreset = rolePreset || null;
+  showView("authView");
+  setAuthTab(tab || "login");
+}
+function setAuthTab(tab) {
+  authTab = tab;
+  document.getElementById("tabLogin").className = tab === "login" ? "active" : "";
+  document.getElementById("tabRegister").className = tab === "register" ? "active" : "";
+  document.getElementById("authContent").innerHTML = tab === "login" ? loginFormHTML() : registerFormHTML();
+}
+
+function loginFormHTML() {
+  return `
+    <h2>Connexion</h2>
+    <div class="sub">Accédez à votre espace MIMOYE.</div>
+    <div id="authMsg"></div>
+    <div class="field"><label class="field-label">Email</label><input type="text" id="login-email" placeholder="vous@exemple.com"></div>
+    <div class="field"><label class="field-label">Mot de passe</label><input type="text" id="login-password" placeholder="••••••••"></div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Se connecter</button>
+    <div class="hr-note">Compte administrateur de démonstration : admin@mimoye.ci / Admin#2026</div>`;
+}
+function registerFormHTML() {
+  const role = authRolePreset || "client";
+  return `
+    <h2>Créer un compte</h2>
+    <div class="sub">Rejoignez MIMOYE en tant que client ou professionnel.</div>
+    <div id="authMsg"></div>
+    <div class="field"><label class="field-label">Je suis</label>
+      <select id="reg-role">
+        <option value="client" ${role==='client'?'selected':''}>Client</option>
+        <option value="pro" ${role==='pro'?'selected':''}>Professionnel indépendant</option>
+        <option value="entreprise" ${role==='entreprise'?'selected':''}>Entreprise</option>
+      </select>
+    </div>
+    <div class="field"><label class="field-label">Nom complet / Raison sociale</label><input type="text" id="reg-name"></div>
+    <div class="field"><label class="field-label">Téléphone</label><input type="text" id="reg-phone" placeholder="+225 ..."></div>
+    <div class="field"><label class="field-label">Email</label><input type="text" id="reg-email"></div>
+    <div class="field"><label class="field-label">Mot de passe</label><input type="text" id="reg-password" placeholder="6 caractères minimum"></div>
+    <button class="btn btn-primary btn-block" onclick="doRegister()">Créer mon compte</button>`;
+}
+
+function authMsg(text, ok) {
+  document.getElementById("authMsg").innerHTML = `<div class="${ok?'ok-box':'err-box'}">${text}</div>`;
+}
+
+async function doLogin() {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  try {
+    const data = await apiPost("/api/auth/login", { email, password });
+    currentUser = data.user;
+    renderHeader();
+    enterAppForRole(currentUser.role);
+  } catch (e) { authMsg(e.message, false); }
+}
+async function doRegister() {
+  const role = document.getElementById("reg-role").value;
+  const name = document.getElementById("reg-name").value.trim();
+  const phone = document.getElementById("reg-phone").value.trim();
+  const email = document.getElementById("reg-email").value.trim();
+  const password = document.getElementById("reg-password").value;
+  try {
+    await apiPost("/api/auth/register", { role, name, phone, email, password });
+    authMsg("Compte créé avec succès. Connexion en cours...", true);
+    const data = await apiPost("/api/auth/login", { email, password });
+    currentUser = data.user;
+    renderHeader();
+    enterAppForRole(currentUser.role);
+  } catch (e) { authMsg(e.message, false); }
+}
+async function logout() {
+  try { await apiPost("/api/auth/logout"); } catch (e) {}
+  currentUser = null;
+  renderHeader();
+  showView("landingView");
+}
+
+// =====================================================================
+// STRUCTURE DES ÉCRANS PAR RÔLE
+// =====================================================================
+const SCREENS = {
+  client: [
+    { id: "resultats", title: "Rechercher un professionnel", desc: "Professionnels disponibles, vérifiés par MIMOYE." },
+    { id: "fiche-pro", title: "Fiche professionnel", desc: "Détail du professionnel sélectionné." },
+    { id: "devis", title: "Demande de devis", desc: "Envoyer une demande au professionnel choisi." },
+    { id: "suivi", title: "Mes demandes", desc: "Suivi de vos demandes en cours et passées." }
+  ],
+  pro: [
+    { id: "dashboard-pro", title: "Mon profil professionnel", desc: "Statut de vérification et informations transmises à MIMOYE." },
+    { id: "demandes-recues", title: "Demandes reçues", desc: "Demandes de devis adressées par des clients." }
+  ],
+  entreprise: [
+    { id: "dashboard-pro", title: "Mon profil entreprise", desc: "Statut de vérification et informations transmises à MIMOYE." },
+    { id: "demandes-recues", title: "Demandes reçues", desc: "Demandes de devis adressées par des clients." }
+  ],
+  admin: [
+    { id: "dashboard-admin", title: "Vue d'ensemble", desc: "Indicateurs clés de la plateforme." },
+    { id: "referentiel", title: "Référentiel métiers", desc: "Arborescence administrable Secteur → Catégorie → Métier." },
+    { id: "verifications", title: "File de vérification", desc: "Validation des dossiers professionnels." },
+    { id: "tarification", title: "Tarification & commissions", desc: "Paramétrage des commissions par catégorie." }
+  ]
+};
+
+function enterAppForRole(role) {
+  showView("appView");
+  const first = SCREENS[role][0].id;
+  setScreen(first);
+}
+
+function renderSidebar() {
+  document.getElementById("sidebarSub").textContent = currentUser ? currentUser.name + " · " + roleLabel(currentUser.role) : "";
+  const nl = document.getElementById("navList");
+  const screens = SCREENS[currentUser.role];
+  nl.innerHTML = `<div class="nav-label">Espace ${roleLabel(currentUser.role)}</div>` +
+    screens.map((s, i) => `
+      <button class="nav-item ${s.id === state.screen ? 'active' : ''}" onclick="setScreen('${s.id}')">
+        <span class="num">${String(i + 1).padStart(2, '0')}</span>${s.title}
+      </button>`).join("");
+}
+function chemin(parts) {
+  document.getElementById("chemin").innerHTML = parts.map((p, i) => (i > 0 ? '<span class="sep">/</span>' : '') + `<span class="seg">${p}</span>`).join(" ");
+}
+
+async function setScreen(id) {
+  state.screen = id;
+  document.getElementById("content").innerHTML = `<div style="padding:40px;color:#8a8272;font-size:13px;">Chargement…</div>`;
+  renderSidebar();
+  const meta = SCREENS[currentUser.role].find(s => s.id === id);
+  document.getElementById("screenTitle").textContent = meta.title;
+  document.getElementById("screenDesc").textContent = meta.desc;
+  chemin([roleLabel(currentUser.role), meta.title]);
+  try {
+    const html = await RENDERERS[id]();
+    document.getElementById("content").innerHTML = html;
+  } catch (e) {
+    document.getElementById("content").innerHTML = `<div class="err-box">${e.message}</div>`;
+  }
+}
+function refresh() { setScreen(state.screen); }
+
+function badgeHTML(type) {
+  if (type === "verifie") return `<span class="badge badge-verifie">● Vérifié</span>`;
+  if (type === "certifie") return `<span class="badge badge-verifie">● Certifié</span>`;
+  if (type === "attente") return `<span class="badge badge-attente">● En cours de vérification</span>`;
+  if (type === "refuse") return `<span class="badge badge-danger">● Dossier refusé</span>`;
+  return `<span class="badge badge-neutre">● Non vérifié</span>`;
+}
+function stampHTML(badge) {
+  const cls = badge === "attente" ? "pending" : (badge === "verifie" || badge === "certifie" ? "" : "unverified");
+  const label = badge === "attente" ? "EN COURS" : (badge === "verifie" ? "VÉRIFIÉ" : (badge === "certifie" ? "CERTIFIÉ" : "NON VÉRIFIÉ"));
+  return `<div class="stamp ${cls}"><span class="s-top">MIMOYE</span><span class="s-mid">${label}</span></div>`;
+}
+
+// =====================================================================
+// ÉCRANS : CLIENT
+// =====================================================================
+async function screenResultats() {
+  const pros = await api("/api/professionals");
+  state.cache.pros = pros;
+  if (!pros.length) return `<div class="card">Aucun professionnel disponible pour le moment.</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:12px;">
+    ${pros.map(p => `
+    <div class="pro-card">
+      <div class="avatar">${p.init}</div>
+      <div style="flex:1;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-weight:700;font-size:14.5px;">${p.name}</div>
+          <div style="font-size:12.5px;color:#6b6459;margin-top:2px;">${p.metier} · ${p.zone}</div></div>
+          ${badgeHTML(p.badge)}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+          <span class="stars">★★★★★</span>
+          <span style="font-size:12.5px;color:#6b6459;">${p.avis ? p.note + " (" + p.avis + " avis)" : "Pas encore d'avis"}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+          <span style="font-family:var(--mono);font-size:12px;">${p.tarif}</span>
+          <button class="btn btn-primary btn-sm" onclick="viewPro('${p.id}')">Voir le profil</button>
+        </div>
+      </div>
+    </div>`).join("")}
+  </div>`;
+}
+function viewPro(id) { state.selectedProId = id; setScreen("fiche-pro"); }
+
+async function screenFichePro() {
+  const p = (state.cache.pros || []).find(x => x.id === state.selectedProId);
+  if (!p) return `<div class="card">Sélectionnez d'abord un professionnel depuis "Rechercher un professionnel".</div>`;
+  return `<div class="grid grid-2" style="align-items:start;">
+    <div class="card">
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div class="avatar" style="width:64px;height:64px;font-size:20px;">${p.init}</div>
+        <div style="flex:1;">
+          <div style="font-family:var(--display);font-weight:700;font-size:19px;">${p.name}</div>
+          <div style="font-size:13px;color:#6b6459;margin-top:2px;">${p.metier} · ${p.zone}</div>
+          <div style="margin-top:8px;">${badgeHTML(p.badge)}</div>
+        </div>
+        ${stampHTML(p.badge)}
+      </div>
+      <div class="section-gap" style="font-size:13px;color:#4a453d;">Téléphone : ${p.tel || "—"}</div>
+      <div class="section-gap"><span class="tag">${p.metier}</span></div>
+    </div>
+    <div class="card">
+      <div class="field-label">Tarif indicatif</div>
+      <div style="font-family:var(--mono);font-size:14px;margin:8px 0 18px;">${p.tarif}</div>
+      <button class="btn btn-primary btn-block" onclick="setScreen('devis')">Demander un devis</button>
+    </div>
+  </div>`;
+}
+
+async function screenDevis() {
+  const p = (state.cache.pros || []).find(x => x.id === state.selectedProId);
+  if (!p) return `<div class="card">Sélectionnez d'abord un professionnel.</div>`;
+  return `<div class="card" style="max-width:600px;">
+    <div class="field-label" style="margin-bottom:14px;">Demande à ${p.name} (${p.metier})</div>
+    <div id="devisMsg"></div>
+    <div class="field"><label class="field-label">Décrivez votre besoin</label><textarea id="devis-desc" placeholder="Ex : fuite au niveau du raccord évier cuisine..."></textarea></div>
+    <div class="grid grid-2">
+      <div class="field"><label class="field-label">Date souhaitée</label><input type="date" id="devis-date"></div>
+      <div class="field"><label class="field-label">Budget indicatif</label><input type="text" id="devis-budget" placeholder="Ex : 10 000 - 15 000 FCFA"></div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="submitDevis('${p.id}')">Envoyer la demande</button>
+  </div>`;
+}
+async function submitDevis(proId) {
+  const description = document.getElementById("devis-desc").value.trim();
+  const dateSouhaitee = document.getElementById("devis-date").value;
+  const budget = document.getElementById("devis-budget").value.trim();
+  try {
+    await apiPost("/api/requests", { professionalId: proId, description, dateSouhaitee, budget });
+    setScreen("suivi");
+  } catch (e) {
+    document.getElementById("devisMsg").innerHTML = `<div class="err-box">${e.message}</div>`;
+  }
+}
+
+const STATUS_LABEL = {
+  SEARCHING: "En attente de devis", QUOTE_SENT: "Devis reçu", QUOTE_ACCEPTED: "Devis accepté",
+  PAID: "Payée", CANCELLED: "Annulée"
+};
+async function screenSuivi() {
+  const list = await api("/api/requests/mine");
+  const pros = state.cache.pros || await api("/api/professionals");
+  if (!list.length) return `<div class="card">Aucune demande pour le moment. Rendez-vous dans "Rechercher un professionnel" pour en créer une.</div>`;
+  return list.slice().reverse().map(r => {
+    const pro = pros.find(p => p.id === r.professionalId);
+    return `<div class="card section-gap">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div style="font-weight:700;font-size:14px;">${pro ? pro.name : "Professionnel"}</div>
+        <div style="font-size:12px;color:#6b6459;">${r.description || "—"}</div></div>
+        <span class="badge badge-neutre">${STATUS_LABEL[r.status] || r.status}</span>
+      </div>
+      ${r.quote ? `<div class="hr-note section-gap">Devis proposé : <b style="color:var(--ink);font-family:var(--mono);">${r.quote.amount} FCFA</b> — ${r.quote.note || ""}</div>` : ""}
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        ${r.status === "QUOTE_SENT" ? `<button class="btn btn-primary btn-sm" onclick="acceptQuote('${r.id}')">Accepter le devis</button>` : ""}
+        ${r.status === "QUOTE_ACCEPTED" ? `<button class="btn btn-artisan btn-sm" onclick="payRequest('${r.id}')">Payer (${r.quote ? r.quote.amount : ''} FCFA)</button>` : ""}
+        ${r.status === "PAID" && !r.rating ? `<button class="btn btn-secondary btn-sm" onclick="rateRequest('${r.id}')">Évaluer le professionnel</button>` : ""}
+        ${r.rating ? `<span class="stars">${"★".repeat(r.rating.stars)}${"☆".repeat(5-r.rating.stars)}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+async function acceptQuote(id) { try { await apiPost(`/api/requests/${id}/accept`); refresh(); } catch(e){ alert(e.message); } }
+async function payRequest(id) { try { const r = await apiPost(`/api/requests/${id}/pay`, {mode:"mobile_money"}); alert(r.warning || "Paiement effectué."); refresh(); } catch(e){ alert(e.message); } }
+async function rateRequest(id) {
+  const stars = prompt("Note sur 5 :", "5");
+  if (!stars) return;
+  const comment = prompt("Commentaire (optionnel) :", "") || "";
+  try { await apiPost(`/api/requests/${id}/rate`, { stars: Number(stars), comment }); refresh(); } catch(e){ alert(e.message); }
+}
+
+// =====================================================================
+// ÉCRANS : PRO / ENTREPRISE
+// =====================================================================
+async function screenDashboardPro() {
+  const data = await api("/api/professionals/me");
+  const p = data.professional;
+  if (!p) {
+    return `<div class="card" style="max-width:560px;">
+      <div class="field-label" style="margin-bottom:14px;">Compléter mon profil professionnel</div>
+      <div id="proMsg"></div>
+      <div class="field"><label class="field-label">Métier</label><input type="text" id="pro-metier" placeholder="Ex : Plombier"></div>
+      <div class="field"><label class="field-label">Zone d'intervention</label><input type="text" id="pro-zone" placeholder="Ex : Cocody, Abidjan"></div>
+      <div class="field"><label class="field-label">Téléphone</label><input type="text" id="pro-tel" placeholder="+225 ..."></div>
+      <div class="field"><label class="field-label">Tarif indicatif</label><input type="text" id="pro-tarif" placeholder="Ex : À partir de 8 000 FCFA"></div>
+      <button class="btn btn-primary btn-block" onclick="submitProProfile()">Envoyer mon dossier</button>
+      <div class="hr-note">Votre dossier sera examiné par l'administration avant d'apparaître comme vérifié auprès des clients.</div>
+    </div>`;
+  }
+  return `<div class="card" style="max-width:560px;">
+    <div style="display:flex;gap:16px;align-items:center;">
+      <div class="avatar" style="width:56px;height:56px;font-size:17px;">${p.init}</div>
+      <div style="flex:1;"><div style="font-family:var(--display);font-weight:700;font-size:17px;">${p.name}</div>
+      <div style="font-size:12.5px;color:#6b6459;">${p.metier} · ${p.zone}</div></div>
+      ${stampHTML(p.badge)}
+    </div>
+    <div class="section-gap">${badgeHTML(p.badge)}</div>
+    ${p.badge === "attente" ? `<div class="hr-note section-gap">Votre dossier est en cours d'examen par l'administration MIMOYE.</div>` : ""}
+    ${p.badge === "refuse" ? `<div class="hr-note section-gap" style="color:var(--danger);">Votre dossier a été refusé. Vous pouvez mettre à jour vos informations ci-dessous et le soumettre à nouveau.</div>` : ""}
+    <div class="section-gap"><button class="btn btn-secondary btn-sm" onclick="editProProfile()">Modifier mes informations</button></div>
+  </div>
+  <div class="card section-gap" style="max-width:560px;" id="proEditBox"></div>`;
+}
+function editProProfile() {
+  document.getElementById("proEditBox").innerHTML = `
+    <div class="field-label" style="margin-bottom:14px;">Mettre à jour mon dossier</div>
+    <div id="proMsg"></div>
+    <div class="field"><label class="field-label">Métier</label><input type="text" id="pro-metier"></div>
+    <div class="field"><label class="field-label">Zone d'intervention</label><input type="text" id="pro-zone"></div>
+    <div class="field"><label class="field-label">Téléphone</label><input type="text" id="pro-tel"></div>
+    <div class="field"><label class="field-label">Tarif indicatif</label><input type="text" id="pro-tarif"></div>
+    <button class="btn btn-primary btn-block" onclick="submitProProfile()">Envoyer la mise à jour</button>
+    <div class="hr-note">Une modification repasse votre dossier en attente de vérification.</div>`;
+}
+async function submitProProfile() {
+  const metier = document.getElementById("pro-metier").value.trim();
+  const zone = document.getElementById("pro-zone").value.trim();
+  const tel = document.getElementById("pro-tel").value.trim();
+  const tarif = document.getElementById("pro-tarif").value.trim();
+  const msg = document.getElementById("proMsg");
+  try {
+    await apiPost("/api/professionals/register", { metier, zone, tel, tarif });
+    refresh();
+  } catch (e) { msg.innerHTML = `<div class="err-box">${e.message}</div>`; }
+}
+
+async function screenDemandesRecues() {
+  const list = await api("/api/requests/received");
+  if (!list.length) return `<div class="card">Aucune demande reçue pour le moment.</div>`;
+  return list.slice().reverse().map(r => `
+    <div class="card section-gap">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div style="font-size:13px;">${r.description || "—"}</div>
+        <div style="font-size:11.5px;color:#6b6459;margin-top:4px;">Souhaité : ${r.dateSouhaitee || "—"} · Budget : ${r.budget || "—"}</div></div>
+        <span class="badge badge-neutre">${STATUS_LABEL[r.status] || r.status}</span>
+      </div>
+      ${r.status === "SEARCHING" ? `
+      <div class="grid grid-2 section-gap">
+        <div class="field"><label class="field-label">Montant proposé (FCFA)</label><input type="text" id="quote-amt-${r.id}"></div>
+        <div class="field"><label class="field-label">Note</label><input type="text" id="quote-note-${r.id}"></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="sendQuote('${r.id}')">Envoyer le devis</button>` : ""}
+      ${r.quote ? `<div class="hr-note">Devis envoyé : <b>${r.quote.amount} FCFA</b></div>` : ""}
+    </div>`).join("");
+}
+async function sendQuote(id) {
+  const amount = document.getElementById("quote-amt-" + id).value.trim();
+  const note = document.getElementById("quote-note-" + id).value.trim();
+  try { await apiPost(`/api/requests/${id}/quote`, { amount, note }); refresh(); } catch (e) { alert(e.message); }
+}
+
+// =====================================================================
+// ÉCRANS : ADMIN
+// =====================================================================
+async function screenDashboardAdmin() {
+  const s = await api("/api/admin/stats");
+  return `<div class="grid grid-4">
+    <div class="kpi"><div class="num">${s.totalUsers}</div><div class="lbl">Comptes créés</div></div>
+    <div class="kpi"><div class="num">${s.totalPros}</div><div class="lbl">Professionnels</div></div>
+    <div class="kpi"><div class="num">${s.pendingPros}</div><div class="lbl">Dossiers en attente</div></div>
+    <div class="kpi"><div class="num">${s.totalRequests}</div><div class="lbl">Demandes créées</div></div>
+  </div>
+  ${s.pendingPros > 0 ? `<div class="hr-note section-gap">⚠️ ${s.pendingPros} dossier(s) en attente — <a href="#" onclick="setScreen('verifications');return false;" style="color:var(--confiance);font-weight:600;">voir la file de vérification</a>.</div>` : ""}`;
+}
+
+async function screenReferentiel() {
+  const taxonomy = await api("/api/taxonomy");
+  const tree = taxonomy.map(sect => `
+    <div class="taxo-level0">${sect.secteur}</div>
+    ${sect.cats.map(c => `
+    <div class="taxo-level1 taxo-row">${c.cat} <button class="btn btn-sm btn-ghost" onclick="renameCat('${sect.secteur.replace(/'/g,"\\'")}','${c.cat.replace(/'/g,"\\'")}')">Modifier</button></div>
+    <div class="taxo-level2">→ ${c.metiers.join(" · ")}</div>`).join("")}
+  `).join("");
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="field-label" style="margin:0;">Référentiel des métiers (administrable)</div>
+      <button class="btn btn-artisan btn-sm" onclick="addMetier()">+ Ajouter un métier</button>
+    </div>
+    <div class="taxo-tree section-gap">${tree}</div>
+  </div>`;
+}
+async function addMetier() {
+  const secteur = prompt("Secteur (existant ou nouveau) :", ""); if (!secteur) return;
+  const categorie = prompt("Catégorie :", ""); if (!categorie) return;
+  const metier = prompt("Nom du métier :", ""); if (!metier) return;
+  try { await apiPost("/api/taxonomy", { secteur, categorie, metier }); refresh(); } catch (e) { alert(e.message); }
+}
+async function renameCat(secteur, ancienNom) {
+  const nouveauNom = prompt("Nouveau nom de catégorie :", ancienNom); if (!nouveauNom) return;
+  try { await apiPost("/api/taxonomy/rename", { secteur, ancienNom, nouveauNom }); refresh(); } catch (e) { alert(e.message); }
+}
+
+async function screenVerifications() {
+  const data = await api("/api/admin/verifications");
+  const rows = data.pending.length ? data.pending.map(p => `
+    <tr><td>${p.name}</td><td>${p.metier}</td><td>${p.zone}</td><td>${p.tel||"—"}</td>
+    <td style="white-space:nowrap;">
+      <button class="btn btn-sm btn-primary" onclick="verifAction('${p.id}','approve')">Approuver</button>
+      <button class="btn btn-sm btn-ghost" onclick="verifAction('${p.id}','reject')">Refuser</button>
+    </td></tr>`).join("") : `<tr><td colspan="5" style="color:#8a8272;">Aucun dossier en attente.</td></tr>`;
+  return `<div class="card">
+    <div class="field-label">Dossiers en attente (${data.pending.length})</div>
+    <table class="section-gap"><tr><th>Professionnel</th><th>Métier</th><th>Zone</th><th>Téléphone</th><th></th></tr>${rows}</table>
+  </div>
+  <div class="card section-gap">
+    <div class="field-label">Vérifiés / certifiés (${data.verified.length})</div>
+    <table class="section-gap"><tr><th>Professionnel</th><th>Métier</th><th>Statut</th></tr>
+    ${data.verified.length ? data.verified.map(p=>`<tr><td>${p.name}</td><td>${p.metier}</td><td>${badgeHTML(p.badge)}</td></tr>`).join("") : `<tr><td colspan="3" style="color:#8a8272;">Aucun.</td></tr>`}
+    </table>
+  </div>`;
+}
+async function verifAction(id, action) { try { await apiPost(`/api/admin/professionals/${id}/${action}`); refresh(); } catch (e) { alert(e.message); } }
+
+async function screenTarification() {
+  const commissions = await api("/api/admin/commissions");
+  const rows = Object.keys(commissions).map(cat => `
+    <tr><td>${cat}</td><td style="font-family:var(--mono);">${commissions[cat]}%</td>
+    <td><button class="btn btn-sm btn-ghost" onclick="modifyCommission('${cat.replace(/'/g,"\\'")}', ${commissions[cat]})">Modifier</button></td></tr>`).join("");
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="field-label" style="margin:0;">Commissions par catégorie</div>
+      <button class="btn btn-artisan btn-sm" onclick="modifyCommission('', 12)">+ Ajouter une catégorie</button>
+    </div>
+    <table class="section-gap"><tr><th>Catégorie</th><th>Commission</th><th></th></tr>${rows}</table>
+  </div>`;
+}
+async function modifyCommission(cat, current) {
+  const categorie = cat || prompt("Nom de la catégorie :", ""); if (!categorie) return;
+  const taux = prompt(`Commission pour "${categorie}" (%) :`, current);
+  if (taux === null) return;
+  try { await apiPost("/api/admin/commissions", { categorie, taux: Number(taux) }); refresh(); } catch (e) { alert(e.message); }
+}
+
+const RENDERERS = {
+  "resultats": screenResultats, "fiche-pro": screenFichePro, "devis": screenDevis, "suivi": screenSuivi,
+  "dashboard-pro": screenDashboardPro, "demandes-recues": screenDemandesRecues,
+  "dashboard-admin": screenDashboardAdmin, "referentiel": screenReferentiel,
+  "verifications": screenVerifications, "tarification": screenTarification
+};
+
+checkAuth();
+</script>
+</body>
+</html>
