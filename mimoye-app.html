@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- MIMOYE build-marker: v2-css-fix — si tu ne vois pas ce commentaire dans "Afficher le code source" de ton site en ligne, le fichier déployé n'est PAS celui-ci. -->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -671,7 +672,42 @@ function loginFormHTML() {
     <div class="field"><label class="field-label">Email</label><input type="text" id="login-email" placeholder="vous@exemple.com"></div>
     <div class="field"><label class="field-label">Mot de passe</label><input type="text" id="login-password" placeholder="••••••••"></div>
     <button class="btn btn-primary btn-block" onclick="doLogin()">Se connecter</button>
-    <div class="hr-note">Compte administrateur de démonstration : admin@mimoye.ci / Admin#2026</div>`;
+    <div style="text-align:center;margin-top:12px;"><a href="#" onclick="showForgotPassword();return false;" style="font-size:12px;color:var(--confiance);font-weight:600;">Mot de passe oublié ?</a></div>`;
+}
+function showForgotPassword() {
+  document.getElementById("authContent").innerHTML = `
+    <h2>Mot de passe oublié</h2>
+    <div class="sub">Un jeton de réinitialisation sera généré pour ce compte.</div>
+    <div id="authMsg"></div>
+    <div class="field"><label class="field-label">Email</label><input type="text" id="forgot-email"></div>
+    <button class="btn btn-primary btn-block" onclick="doForgotPassword()">Envoyer la demande</button>
+    <div style="text-align:center;margin-top:12px;"><a href="#" onclick="setAuthTab('login');return false;" style="font-size:12px;color:var(--confiance);font-weight:600;">Retour à la connexion</a></div>`;
+}
+async function doForgotPassword() {
+  const email = document.getElementById("forgot-email").value.trim();
+  try {
+    const data = await apiPost("/api/auth/forgot-password", { email });
+    if (data.devMode && data.resetToken) {
+      document.getElementById("authContent").innerHTML = `
+        <h2>Réinitialiser le mot de passe</h2>
+        <div class="err-box">Aucun service d'envoi d'email n'est encore configuré sur ce déploiement (mode démonstration) : le jeton est affiché directement ci-dessous au lieu d'être envoyé par email.</div>
+        <div id="authMsg"></div>
+        <div class="field"><label class="field-label">Jeton reçu</label><input type="text" id="reset-token" value="${data.resetToken}"></div>
+        <div class="field"><label class="field-label">Nouveau mot de passe</label><input type="text" id="reset-password" placeholder="6 caractères minimum"></div>
+        <button class="btn btn-primary btn-block" onclick="doResetPassword()">Réinitialiser</button>`;
+    } else {
+      authMsg("Si un compte existe avec cet email, les instructions ont été envoyées.", true);
+    }
+  } catch (e) { authMsg(e.message, false); }
+}
+async function doResetPassword() {
+  const token = document.getElementById("reset-token").value.trim();
+  const password = document.getElementById("reset-password").value;
+  try {
+    await apiPost("/api/auth/reset-password", { token, password });
+    authMsg("Mot de passe réinitialisé. Vous pouvez vous connecter.", true);
+    setTimeout(() => setAuthTab("login"), 1200);
+  } catch (e) { authMsg(e.message, false); }
 }
 function registerFormHTML() {
   const role = authRolePreset || "client";
@@ -737,21 +773,34 @@ const SCREENS = {
     { id: "resultats", title: "Rechercher un professionnel", desc: "Professionnels disponibles, vérifiés par MIMOYE." },
     { id: "fiche-pro", title: "Fiche professionnel", desc: "Détail du professionnel sélectionné." },
     { id: "devis", title: "Demande de devis", desc: "Envoyer une demande au professionnel choisi." },
-    { id: "suivi", title: "Mes demandes", desc: "Suivi de vos demandes en cours et passées." }
+    { id: "suivi", title: "Mes demandes", desc: "Suivi de vos demandes en cours et passées." },
+    { id: "notifications", title: "Notifications", desc: "Événements récents concernant votre compte." },
+    { id: "profil", title: "Mon profil", desc: "Informations personnelles et mot de passe." }
   ],
   pro: [
     { id: "dashboard-pro", title: "Mon profil professionnel", desc: "Statut de vérification et informations transmises à MIMOYE." },
-    { id: "demandes-recues", title: "Demandes reçues", desc: "Demandes de devis adressées par des clients." }
+    { id: "demandes-recues", title: "Demandes reçues", desc: "Demandes de devis adressées par des clients." },
+    { id: "portefeuille", title: "Portefeuille", desc: "Solde, historique et demandes de retrait." },
+    { id: "litiges", title: "Mes litiges", desc: "Litiges ouverts sur vos demandes." },
+    { id: "notifications", title: "Notifications", desc: "Événements récents concernant votre activité." },
+    { id: "profil", title: "Mon profil", desc: "Informations personnelles et mot de passe." }
   ],
   entreprise: [
     { id: "dashboard-pro", title: "Mon profil entreprise", desc: "Statut de vérification et informations transmises à MIMOYE." },
-    { id: "demandes-recues", title: "Demandes reçues", desc: "Demandes de devis adressées par des clients." }
+    { id: "demandes-recues", title: "Demandes reçues", desc: "Demandes de devis adressées par des clients." },
+    { id: "portefeuille", title: "Portefeuille", desc: "Solde, historique et demandes de retrait." },
+    { id: "litiges", title: "Mes litiges", desc: "Litiges ouverts sur vos demandes." },
+    { id: "notifications", title: "Notifications", desc: "Événements récents concernant votre activité." },
+    { id: "profil", title: "Mon profil", desc: "Informations personnelles et mot de passe." }
   ],
   admin: [
-    { id: "dashboard-admin", title: "Vue d'ensemble", desc: "Indicateurs clés de la plateforme." },
+    { id: "dashboard-admin", title: "Vue d'ensemble", desc: "Indicateurs clés et financiers de la plateforme." },
     { id: "referentiel", title: "Référentiel métiers", desc: "Arborescence administrable Secteur → Catégorie → Métier." },
     { id: "verifications", title: "File de vérification", desc: "Validation des dossiers professionnels." },
-    { id: "tarification", title: "Tarification & commissions", desc: "Paramétrage des commissions par catégorie." }
+    { id: "tarification", title: "Tarification & commissions", desc: "Paramétrage des commissions par catégorie." },
+    { id: "retraits", title: "Retraits professionnels", desc: "Demandes de retrait à valider." },
+    { id: "admin-litiges", title: "Litiges", desc: "Examiner et clôturer les litiges signalés." },
+    { id: "profil", title: "Mon profil", desc: "Informations personnelles et mot de passe." }
   ]
 };
 
@@ -1013,7 +1062,15 @@ async function screenDashboardAdmin() {
     <div class="kpi"><div class="num">${s.pendingPros}</div><div class="lbl">Dossiers en attente</div></div>
     <div class="kpi"><div class="num">${s.totalRequests}</div><div class="lbl">Demandes créées</div></div>
   </div>
-  ${s.pendingPros > 0 ? `<div class="hr-note section-gap">⚠️ ${s.pendingPros} dossier(s) en attente — <a href="#" onclick="setScreen('verifications');return false;" style="color:var(--confiance);font-weight:600;">voir la file de vérification</a>.</div>` : ""}`;
+  <div class="grid grid-4 section-gap">
+    <div class="kpi"><div class="num">${s.totalVolume.toLocaleString('fr-FR')}</div><div class="lbl">Volume payé (FCFA)</div></div>
+    <div class="kpi"><div class="num">${s.totalCommissions.toLocaleString('fr-FR')}</div><div class="lbl">Commissions MIMOYE (FCFA)</div></div>
+    <div class="kpi"><div class="num">${s.pendingWithdrawals}</div><div class="lbl">Retraits à traiter</div></div>
+    <div class="kpi"><div class="num">${s.openDisputes}</div><div class="lbl">Litiges ouverts</div></div>
+  </div>
+  ${s.pendingPros > 0 ? `<div class="hr-note section-gap">⚠️ ${s.pendingPros} dossier(s) en attente — <a href="#" onclick="setScreen('verifications');return false;" style="color:var(--confiance);font-weight:600;">voir la file de vérification</a>.</div>` : ""}
+  ${s.pendingWithdrawals > 0 ? `<div class="hr-note">⚠️ ${s.pendingWithdrawals} retrait(s) à traiter — <a href="#" onclick="setScreen('retraits');return false;" style="color:var(--confiance);font-weight:600;">voir les retraits</a>.</div>` : ""}
+  ${s.openDisputes > 0 ? `<div class="hr-note">⚠️ ${s.openDisputes} litige(s) ouvert(s) — <a href="#" onclick="setScreen('admin-litiges');return false;" style="color:var(--confiance);font-weight:600;">voir les litiges</a>.</div>` : ""}`;
 }
 
 async function screenReferentiel() {
@@ -1084,11 +1141,154 @@ async function modifyCommission(cat, current) {
   try { await apiPost("/api/admin/commissions", { categorie, taux: Number(taux) }); refresh(); } catch (e) { alert(e.message); }
 }
 
+// =====================================================================
+// ÉCRANS : PROFIL / NOTIFICATIONS (tous rôles)
+// =====================================================================
+async function screenProfil() {
+  return `
+  <div class="card" style="max-width:520px;">
+    <div class="field-label" style="margin-bottom:14px;">Informations personnelles</div>
+    <div id="profilMsg"></div>
+    <div class="field"><label class="field-label">Nom complet</label><input type="text" id="profil-name" value="${currentUser.name}"></div>
+    <div class="field"><label class="field-label">Téléphone</label><input type="text" id="profil-phone" value="${currentUser.phone || ''}"></div>
+    <button class="btn btn-secondary btn-block" onclick="saveProfil()">Enregistrer</button>
+  </div>
+  <div class="card section-gap" style="max-width:520px;">
+    <div class="field-label" style="margin-bottom:14px;">Changer mon mot de passe</div>
+    <div id="pwdMsg"></div>
+    <div class="field"><label class="field-label">Mot de passe actuel</label><input type="text" id="pwd-current"></div>
+    <div class="field"><label class="field-label">Nouveau mot de passe</label><input type="text" id="pwd-new" placeholder="6 caractères minimum"></div>
+    <button class="btn btn-primary btn-block" onclick="savePassword()">Changer le mot de passe</button>
+  </div>`;
+}
+async function saveProfil() {
+  const name = document.getElementById("profil-name").value.trim();
+  const phone = document.getElementById("profil-phone").value.trim();
+  try {
+    const data = await apiPost("/api/auth/profile", { name, phone });
+    currentUser = data.user; renderHeader();
+    document.getElementById("profilMsg").innerHTML = `<div class="ok-box">Informations mises à jour.</div>`;
+  } catch (e) { document.getElementById("profilMsg").innerHTML = `<div class="err-box">${e.message}</div>`; }
+}
+async function savePassword() {
+  const currentPassword = document.getElementById("pwd-current").value;
+  const newPassword = document.getElementById("pwd-new").value;
+  try {
+    await apiPost("/api/auth/change-password", { currentPassword, newPassword });
+    document.getElementById("pwdMsg").innerHTML = `<div class="ok-box">Mot de passe changé.</div>`;
+  } catch (e) { document.getElementById("pwdMsg").innerHTML = `<div class="err-box">${e.message}</div>`; }
+}
+const NOTIF_LABEL = { payment: "💳 Paiement", dispute: "⚠️ Litige", default: "🔔" };
+async function screenNotifications() {
+  const list = await api("/api/notifications");
+  if (!list.length) return `<div class="card">Aucune notification pour le moment.</div>`;
+  return list.map(n => `<div class="card section-gap" style="${n.read?'':'border-color:var(--confiance);'}">
+    <div style="font-size:12px;color:#6b6459;">${NOTIF_LABEL[n.type] || NOTIF_LABEL.default} · ${new Date(n.at).toLocaleString('fr-FR')}</div>
+    <div style="font-size:13.5px;margin-top:4px;">${n.message}</div>
+  </div>`).join("");
+}
+
+// =====================================================================
+// ÉCRANS : PORTEFEUILLE / RETRAITS (pro, entreprise)
+// =====================================================================
+async function screenPortefeuille() {
+  const data = await api("/api/pro/wallet");
+  return `
+  <div class="grid grid-3">
+    <div class="kpi"><div class="num">${data.wallet.available}</div><div class="lbl">Solde disponible (FCFA)</div></div>
+    <div class="kpi"><div class="num">${data.wallet.pending}</div><div class="lbl">En attente de déblocage (FCFA)</div></div>
+    <div class="kpi"><div class="num">${data.withdrawals.filter(w=>w.status==='PENDING').length}</div><div class="lbl">Retraits en cours</div></div>
+  </div>
+  <div class="card section-gap" style="max-width:420px;">
+    <div class="field-label" style="margin-bottom:12px;">Demander un retrait</div>
+    <div id="wdMsg"></div>
+    <div class="field"><label class="field-label">Montant (FCFA)</label><input type="text" id="wd-montant" placeholder="Max : ${data.wallet.available}"></div>
+    <button class="btn btn-artisan btn-block" onclick="requestWithdrawal()">Demander le retrait</button>
+    <div class="hr-note">MODE SANDBOX : le virement réel vers Mobile Money n'est pas encore branché — la demande est enregistrée et validée par l'admin, sans mouvement bancaire réel.</div>
+  </div>
+  <div class="card section-gap">
+    <div class="field-label">Historique des retraits</div>
+    <table class="section-gap"><tr><th>Montant</th><th>Statut</th><th>Date</th></tr>
+    ${data.withdrawals.length ? data.withdrawals.slice().reverse().map(w=>`<tr><td>${w.montant} FCFA</td><td><span class="badge badge-neutre">${w.status}</span></td><td>${new Date(w.createdAt).toLocaleDateString('fr-FR')}</td></tr>`).join("") : `<tr><td colspan="3" style="color:#8a8272;">Aucun retrait pour le moment.</td></tr>`}
+    </table>
+  </div>`;
+}
+async function requestWithdrawal() {
+  const montant = Number(document.getElementById("wd-montant").value);
+  try { await apiPost("/api/pro/withdrawals", { montant }); refresh(); }
+  catch (e) { document.getElementById("wdMsg").innerHTML = `<div class="err-box">${e.message}</div>`; }
+}
+
+// =====================================================================
+// ÉCRANS : LITIGES
+// =====================================================================
+async function screenLitiges() {
+  const list = await api("/api/disputes/mine");
+  return `
+  <div class="card" style="max-width:520px;">
+    <div class="field-label" style="margin-bottom:12px;">Ouvrir un litige</div>
+    <div id="dispMsg"></div>
+    <div class="field"><label class="field-label">Référence de la demande concernée</label><input type="text" id="disp-reqid" placeholder="Ex : req_xxxxx (visible dans Mes demandes)"></div>
+    <div class="field"><label class="field-label">Motif</label>
+      <select id="disp-motif"><option>Prestation non réalisée</option><option>Prestation incomplète</option><option>Mauvaise qualité</option><option>Montant contesté</option><option>Comportement</option><option>Problème de paiement</option></select>
+    </div>
+    <div class="field"><label class="field-label">Description</label><textarea id="disp-desc"></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="openDispute()">Ouvrir le litige</button>
+  </div>
+  <div class="card section-gap">
+    <div class="field-label">Mes litiges</div>
+    <table class="section-gap"><tr><th>Motif</th><th>Statut</th><th>Décision</th></tr>
+    ${list.length ? list.slice().reverse().map(d=>`<tr><td>${d.motif}</td><td><span class="badge ${d.status==='OUVERT'?'badge-attente':'badge-verifie'}">${d.status}</span></td><td>${d.decision||'—'}</td></tr>`).join("") : `<tr><td colspan="3" style="color:#8a8272;">Aucun litige.</td></tr>`}
+    </table>
+  </div>`;
+}
+async function openDispute() {
+  const requestId = document.getElementById("disp-reqid").value.trim();
+  const motif = document.getElementById("disp-motif").value;
+  const description = document.getElementById("disp-desc").value.trim();
+  try { await apiPost("/api/disputes", { requestId, motif, description }); refresh(); }
+  catch (e) { document.getElementById("dispMsg").innerHTML = `<div class="err-box">${e.message}</div>`; }
+}
+
+// =====================================================================
+// ÉCRANS : ADMIN (retraits, litiges)
+// =====================================================================
+async function screenRetraits() {
+  const list = await api("/api/admin/withdrawals");
+  const pending = list.filter(w => w.status === "PENDING");
+  return `<div class="card">
+    <div class="field-label">Retraits en attente (${pending.length})</div>
+    <table class="section-gap"><tr><th>Professionnel</th><th>Montant</th><th>Date</th><th></th></tr>
+    ${pending.length ? pending.map(w=>`<tr><td>${w.professionalId}</td><td>${w.montant} FCFA</td><td>${new Date(w.createdAt).toLocaleDateString('fr-FR')}</td>
+      <td><button class="btn btn-sm btn-primary" onclick="wdAction('${w.id}','pay')">Marquer payé</button> <button class="btn btn-sm btn-ghost" onclick="wdAction('${w.id}','reject')">Refuser</button></td></tr>`).join("") : `<tr><td colspan="4" style="color:#8a8272;">Aucun retrait en attente.</td></tr>`}
+    </table>
+  </div>`;
+}
+async function wdAction(id, action) { try { await apiPost(`/api/admin/withdrawals/${id}/${action}`); refresh(); } catch(e){ alert(e.message); } }
+
+async function screenAdminLitiges() {
+  const list = await api("/api/admin/disputes");
+  return `<div class="card">
+    <div class="field-label">Tous les litiges (${list.length})</div>
+    <table class="section-gap"><tr><th>Motif</th><th>Description</th><th>Statut</th><th></th></tr>
+    ${list.length ? list.slice().reverse().map(d=>`<tr><td>${d.motif}</td><td style="max-width:260px;">${d.description}</td><td><span class="badge ${d.status==='OUVERT'?'badge-attente':'badge-verifie'}">${d.status}</span></td>
+      <td>${d.status==='OUVERT' ? `<button class="btn btn-sm btn-primary" onclick="closeDispute('${d.id}')">Clôturer</button>` : (d.decision||'—')}</td></tr>`).join("") : `<tr><td colspan="4" style="color:#8a8272;">Aucun litige.</td></tr>`}
+    </table>
+  </div>`;
+}
+async function closeDispute(id) {
+  const decision = prompt("Décision (résumé) :", ""); if (decision === null) return;
+  try { await apiPost(`/api/admin/disputes/${id}/close`, { decision }); refresh(); } catch(e){ alert(e.message); }
+}
+
 const RENDERERS = {
   "resultats": screenResultats, "fiche-pro": screenFichePro, "devis": screenDevis, "suivi": screenSuivi,
   "dashboard-pro": screenDashboardPro, "demandes-recues": screenDemandesRecues,
   "dashboard-admin": screenDashboardAdmin, "referentiel": screenReferentiel,
-  "verifications": screenVerifications, "tarification": screenTarification
+  "verifications": screenVerifications, "tarification": screenTarification,
+  "profil": screenProfil, "notifications": screenNotifications,
+  "portefeuille": screenPortefeuille, "litiges": screenLitiges,
+  "retraits": screenRetraits, "admin-litiges": screenAdminLitiges
 };
 
 checkAuth();

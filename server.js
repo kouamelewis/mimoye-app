@@ -43,18 +43,25 @@ function writeDB(name, data) { fs.writeFileSync(dbFile(name), JSON.stringify(dat
 
 let users = readDB("users", []);
 let sessions = readDB("sessions", {});
-let taxonomy = readDB("taxonomy", [
-  { secteur: "Habitat et Bâtiment", cats: [
-    { cat: "Plomberie", metiers: ["Plombier", "Chauffagiste"] },
-    { cat: "Électricité", metiers: ["Électricien", "Domotique"] }
-  ]},
-  { secteur: "Automobile", cats: [
-    { cat: "Mécanique générale", metiers: ["Mécanicien", "Carrossier"] }
-  ]},
-  { secteur: "Électroménager", cats: [
-    { cat: "Froid & climatisation", metiers: ["Frigoriste", "Technicien climatisation"] }
-  ]}
-]);
+let taxonomy = readDB("taxonomy", require("./taxonomy-seed.js"));
+// Migration additive : si un déploiement existant a l'ancien référentiel restreint,
+// on complète avec les nouveaux secteurs/catégories/métiers sans jamais supprimer
+// ce qu'un administrateur aurait déjà ajouté ou modifié.
+(function migrateTaxonomy() {
+  const seed = require("./taxonomy-seed.js");
+  let changed = false;
+  seed.forEach(seedSect => {
+    let sect = taxonomy.find(s => s.secteur.toLowerCase() === seedSect.secteur.toLowerCase());
+    if (!sect) { taxonomy.push(JSON.parse(JSON.stringify(seedSect))); changed = true; return; }
+    seedSect.cats.forEach(seedCat => {
+      let cat = sect.cats.find(c => c.cat.toLowerCase() === seedCat.cat.toLowerCase());
+      if (!cat) { sect.cats.push(JSON.parse(JSON.stringify(seedCat))); changed = true; return; }
+      seedCat.metiers.forEach(m => { if (!cat.metiers.includes(m)) { cat.metiers.push(m); changed = true; } });
+      if (seedCat.reglemente && !cat.reglemente) { cat.reglemente = true; changed = true; }
+    });
+  });
+  if (changed) writeDB("taxonomy", taxonomy);
+})();
 let professionals = readDB("professionals", [
   { id: "p1", userId: null, name: "Kouadio Yao", metier: "Plombier", zone: "Cocody, Abidjan", tel: "+225 07 00 00 00 01", tarif: "À partir de 8 000 FCFA", badge: "verifie", note: 4.8, avis: 132, init: "KY" },
   { id: "p2", userId: null, name: "SARL Frigo Plus", metier: "Frigoriste — Entreprise", zone: "Yopougon, Abidjan", tel: "+225 07 00 00 00 02", tarif: "Devis sur diagnostic", badge: "certifie", note: 4.6, avis: 87, init: "FP" },
@@ -63,6 +70,11 @@ let professionals = readDB("professionals", [
 let commissions = readDB("commissions", { "Plomberie": 12, "Électricité": 12, "Froid et climatisation": 15, "Services aux entreprises": 10 });
 let requests = readDB("requests", []);
 let auditLogs = readDB("audit_logs", []);
+let wallets = readDB("wallets", {}); // { [professionalId]: { available, pending } }
+let withdrawals = readDB("withdrawals", []);
+let disputes = readDB("disputes", []);
+let notifications = readDB("notifications", []);
+let resetTokens = readDB("reset_tokens", {}); // { token: {userId, expiresAt} }
 
 function saveAll() {
   writeDB("users", users);
@@ -72,9 +84,32 @@ function saveAll() {
   writeDB("commissions", commissions);
   writeDB("requests", requests);
   writeDB("audit_logs", auditLogs);
+  writeDB("wallets", wallets);
+  writeDB("withdrawals", withdrawals);
+  writeDB("disputes", disputes);
+  writeDB("notifications", notifications);
+  writeDB("reset_tokens", resetTokens);
 }
 function log(action, userId, detail) {
   auditLogs.push({ id: newId("log"), action, userId: userId || null, detail: detail || null, at: Date.now() });
+}
+function notify(userId, type, message) {
+  notifications.push({ id: newId("notif"), userId, type, message, read: false, at: Date.now() });
+}
+function getWallet(proId) {
+  if (!wallets[proId]) wallets[proId] = { available: 0, pending: 0 };
+  return wallets[proId];
+}
+// Taux de commission par défaut si la catégorie du métier n'a pas de taux spécifique.
+const DEFAULT_COMMISSION_RATE = 12;
+function commissionRateFor(metier) {
+  // Cherche une commission définie sur la catégorie contenant ce métier ; sinon taux par défaut.
+  for (const sect of taxonomy) {
+    for (const cat of sect.cats) {
+      if (cat.metiers.includes(metier) && commissions[cat.cat] != null) return commissions[cat.cat];
+    }
+  }
+  return commissions[metier] != null ? commissions[metier] : DEFAULT_COMMISSION_RATE;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,12 +128,36 @@ function verifyPassword(password, salt, hash) {
 }
 function newId(prefix) { return prefix + "_" + crypto.randomBytes(6).toString("hex"); }
 
+// L'email et le mot de passe admin viennent de VARIABLES D'ENVIRONNEMENT (jamais du code,
+// jamais du dépôt GitHub qui est public). À définir sur Render : Dashboard → ton service →
+// Environment → Add Environment Variable → ADMIN_EMAIL et ADMIN_PASSWORD.
+// Si ces variables ne sont pas définies, des valeurs par défaut sont utilisées UNIQUEMENT
+// en local pour ne pas bloquer le développement — ne jamais laisser les valeurs par défaut
+// sur un site accessible publiquement.
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@mimoye.ci").trim().toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin#2026";
+
 function seedAdmin() {
-  if (!users.find(u => u.role === "admin")) {
-    const { salt, hash } = hashPassword("Admin#2026");
-    users.push({ id: newId("u"), email: "admin@mimoye.ci", salt, hash, role: "admin", name: "Administrateur MIMOYE", phone: "", createdAt: Date.now() });
+  const existing = users.find(u => u.role === "admin");
+  if (!existing) {
+    const { salt, hash } = hashPassword(ADMIN_PASSWORD);
+    users.push({ id: newId("u"), email: ADMIN_EMAIL, salt, hash, role: "admin", name: "Administrateur MIMOYE", phone: "", createdAt: Date.now() });
     saveAll();
-    console.log("→ Compte admin créé : admin@mimoye.ci / Admin#2026 (à changer en production)");
+    if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+      console.log("⚠️  ADMIN_EMAIL / ADMIN_PASSWORD non définis en variables d'environnement — identifiants par défaut utilisés (" + ADMIN_EMAIL + "). À définir avant toute mise en ligne publique.");
+    } else {
+      console.log("→ Compte admin créé avec les identifiants définis en variables d'environnement.");
+    }
+  } else if (process.env.ADMIN_EMAIL || process.env.ADMIN_PASSWORD) {
+    // Si les variables d'environnement changent après coup (ex. rotation du mot de passe),
+    // on met à jour le compte admin existant pour refléter la nouvelle valeur.
+    let changed = false;
+    if (process.env.ADMIN_EMAIL && existing.email !== ADMIN_EMAIL) { existing.email = ADMIN_EMAIL; changed = true; }
+    if (process.env.ADMIN_PASSWORD) {
+      const { salt, hash } = hashPassword(ADMIN_PASSWORD);
+      existing.salt = salt; existing.hash = hash; changed = true;
+    }
+    if (changed) { saveAll(); console.log("→ Identifiants admin mis à jour depuis les variables d'environnement."); }
   }
 }
 seedAdmin();
@@ -423,14 +482,32 @@ const server = http.createServer(async (req, res) => {
       const reqObj = requests.find(r => r.id === payMatch[1]);
       if (!reqObj) return sendJSON(res, 404, { error: "Demande introuvable." });
       if (reqObj.clientId !== user.id) return sendJSON(res, 403, { error: "Accès refusé." });
+      if (reqObj.status !== "QUOTE_ACCEPTED") return sendJSON(res, 400, { error: "Aucun devis accepté à payer pour cette demande." });
       const body = await readBody(req);
-      // MODE SANDBOX — aucune vraie transaction Mobile Money. À remplacer par une intégration
-      // réelle (ex. CinetPay, PayDunya) utilisant des clés API en variables d'environnement.
-      reqObj.payment = { status: "SUCCESS", mode: body.mode || "mobile_money", simulated: true, at: Date.now() };
+      const pro = professionals.find(p => p.id === reqObj.professionalId);
+      const montant = Number(reqObj.quote && reqObj.quote.amount) || 0;
+      const tauxCommission = commissionRateFor(reqObj.professionalMetier || (pro ? pro.metier : ""));
+      const commissionAmount = Math.round(montant * tauxCommission / 100);
+      const montantPro = montant - commissionAmount;
+      // MODE SANDBOX — le CLIENT PAIE MIMOYE (jamais directement le professionnel) : le calcul de
+      // commission et le crédit du portefeuille professionnel sont réels et tracés. Seul le
+      // déplacement réel d'argent (encaissement effectif du client) est simulé, faute de contrat
+      // marchand Mobile Money — à remplacer par une intégration réelle (CinetPay, PayDunya…)
+      // utilisant des clés API en variables d'environnement, jamais dans le code.
+      reqObj.payment = {
+        status: "SUCCESS", mode: body.mode || "mobile_money", simulated: true, at: Date.now(),
+        reference: newId("txn"), montant, tauxCommission, commissionAmount, montantPro
+      };
       reqObj.status = "PAID";
-      log("payment_sandbox", user.id, { requestId: reqObj.id });
+      if (pro) {
+        const w = getWallet(pro.id);
+        w.pending += montantPro; // reversé après délai / validation admin (voir /api/pro/withdrawals)
+        notify(pro.userId, "payment", `Paiement reçu pour une prestation : ${montantPro} FCFA seront crédités à votre portefeuille (commission MIMOYE : ${commissionAmount} FCFA).`);
+      }
+      notify(user.id, "payment", `Votre paiement de ${montant} FCFA a été enregistré.`);
+      log("payment_sandbox", user.id, { requestId: reqObj.id, montant, commissionAmount, montantPro });
       saveAll();
-      return sendJSON(res, 200, { ok: true, request: reqObj, warning: "Paiement simulé (mode sandbox) — aucune vraie transaction n'a eu lieu." });
+      return sendJSON(res, 200, { ok: true, request: reqObj, warning: "Paiement simulé (mode sandbox) — aucune vraie transaction bancaire n'a eu lieu. Le calcul de commission et le portefeuille sont réels." });
     }
     const rateMatch = pathname.match(/^\/api\/requests\/([^\/]+)\/rate$/);
     if (rateMatch && method === "POST") {
@@ -454,17 +531,210 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { ok: true, request: reqObj });
     }
 
+    // ================= MOT DE PASSE OUBLIÉ (jeton réel, livraison à brancher) =================
+    // Mécanisme réel : jeton aléatoire, à usage unique, expirant après 1h, stocké côté serveur.
+    // La LIVRAISON (email/SMS) nécessite un fournisseur externe (ex. SendGrid, Twilio) non
+    // disponible dans cet environnement. En attendant, le jeton est renvoyé dans la réponse API
+    // avec la mention explicite "DEV MODE" — à remplacer par un envoi réel une fois une clé API
+    // fournie en variable d'environnement (voir README).
+    if (pathname === "/api/auth/forgot-password" && method === "POST") {
+      const body = await readBody(req);
+      const email = (body.email || "").trim().toLowerCase();
+      const user = users.find(u => u.email === email);
+      // Réponse volontairement identique que le compte existe ou non (évite de révéler les emails inscrits).
+      if (!user) return sendJSON(res, 200, { ok: true, devNote: "Si un compte existe avec cet email, un jeton a été généré." });
+      const token = crypto.randomBytes(24).toString("hex");
+      resetTokens[token] = { userId: user.id, expiresAt: Date.now() + 1000 * 60 * 60 };
+      saveAll();
+      log("password_reset_requested", user.id);
+      const emailConfigured = !!process.env.EMAIL_PROVIDER_API_KEY;
+      if (emailConfigured) {
+        // Point d'intégration futur : envoyer `token` par email ici avec le fournisseur configuré.
+      }
+      return sendJSON(res, 200, {
+        ok: true,
+        devMode: !emailConfigured,
+        devNote: emailConfigured ? "Email envoyé." : "DEV MODE (aucun fournisseur email configuré) — jeton renvoyé directement ici au lieu d'être envoyé par email.",
+        resetToken: emailConfigured ? undefined : token
+      });
+    }
+    if (pathname === "/api/auth/reset-password" && method === "POST") {
+      const body = await readBody(req);
+      const token = body.token || "";
+      const entry = resetTokens[token];
+      if (!entry || entry.expiresAt < Date.now()) return sendJSON(res, 400, { error: "Jeton invalide ou expiré. Refaites une demande de réinitialisation." });
+      if (!body.password || body.password.length < 6) return sendJSON(res, 400, { error: "Mot de passe : 6 caractères minimum." });
+      const user = users.find(u => u.id === entry.userId);
+      if (!user) return sendJSON(res, 404, { error: "Compte introuvable." });
+      const { salt, hash } = hashPassword(body.password);
+      user.salt = salt; user.hash = hash;
+      delete resetTokens[token];
+      Object.keys(sessions).forEach(t => { if (sessions[t].userId === user.id) delete sessions[t]; }); // déconnecte toutes les sessions existantes
+      log("password_reset_done", user.id);
+      saveAll();
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    // ================= PROFIL (modification) =================
+    if (pathname === "/api/auth/change-password" && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      const body = await readBody(req);
+      if (!verifyPassword(body.currentPassword || "", user.salt, user.hash)) return sendJSON(res, 401, { error: "Mot de passe actuel incorrect." });
+      if (!body.newPassword || body.newPassword.length < 6) return sendJSON(res, 400, { error: "Nouveau mot de passe : 6 caractères minimum." });
+      const { salt, hash } = hashPassword(body.newPassword);
+      user.salt = salt; user.hash = hash;
+      log("password_changed", user.id);
+      saveAll();
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === "/api/auth/profile" && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      const body = await readBody(req);
+      if (body.name) user.name = String(body.name).trim();
+      if (body.phone != null) user.phone = String(body.phone).trim();
+      log("profile_updated", user.id);
+      saveAll();
+      return sendJSON(res, 200, { ok: true, user: publicUser(user) });
+    }
+
+    // ================= PORTEFEUILLE PROFESSIONNEL & RETRAITS =================
+    if (pathname === "/api/pro/wallet" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["pro", "entreprise"])) return;
+      const pro = professionals.find(p => p.userId === user.id);
+      if (!pro) return sendJSON(res, 200, { wallet: { available: 0, pending: 0 }, withdrawals: [] });
+      return sendJSON(res, 200, { wallet: getWallet(pro.id), withdrawals: withdrawals.filter(w => w.professionalId === pro.id) });
+    }
+    if (pathname === "/api/pro/withdrawals" && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["pro", "entreprise"])) return;
+      const pro = professionals.find(p => p.userId === user.id);
+      if (!pro) return sendJSON(res, 400, { error: "Profil professionnel introuvable." });
+      const body = await readBody(req);
+      const montant = Number(body.montant);
+      const w = getWallet(pro.id);
+      if (!montant || montant <= 0) return sendJSON(res, 400, { error: "Montant invalide." });
+      if (montant > w.available) return sendJSON(res, 400, { error: "Montant supérieur au solde disponible (" + w.available + " FCFA)." });
+      w.available -= montant;
+      const wd = { id: newId("wd"), professionalId: pro.id, montant, status: "PENDING", createdAt: Date.now() };
+      withdrawals.push(wd);
+      log("withdrawal_requested", user.id, { withdrawalId: wd.id, montant });
+      saveAll();
+      return sendJSON(res, 201, { ok: true, withdrawal: wd, wallet: w });
+    }
+    if (pathname === "/api/admin/withdrawals" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      return sendJSON(res, 200, withdrawals);
+    }
+    const wdMatch = pathname.match(/^\/api\/admin\/withdrawals\/([^\/]+)\/(pay|reject)$/);
+    if (wdMatch && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      const wd = withdrawals.find(w => w.id === wdMatch[1]);
+      if (!wd) return sendJSON(res, 404, { error: "Retrait introuvable." });
+      if (wd.status !== "PENDING") return sendJSON(res, 400, { error: "Ce retrait a déjà été traité." });
+      if (wdMatch[2] === "reject") {
+        const w = getWallet(wd.professionalId);
+        w.available += wd.montant; // recrédit en cas de refus
+        wd.status = "REJECTED";
+      } else {
+        wd.status = "PAID"; wd.paidAt = Date.now();
+        // MODE SANDBOX — le virement réel vers Mobile Money du professionnel nécessite l'API du
+        // fournisseur de paiement, à brancher via variable d'environnement.
+      }
+      log("withdrawal_" + wdMatch[2], user.id, { withdrawalId: wd.id });
+      saveAll();
+      return sendJSON(res, 200, { ok: true, withdrawal: wd });
+    }
+    // Reversement du "pending" vers "available" — l'admin valide le déblocage (délai de garantie).
+    if (pathname === "/api/admin/wallets" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      return sendJSON(res, 200, professionals.filter(p => p.userId).map(p => ({ professionalId: p.id, name: p.name, wallet: getWallet(p.id) })));
+    }
+    const releaseMatch = pathname.match(/^\/api\/admin\/wallets\/([^\/]+)\/release$/);
+    if (releaseMatch && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      const w = getWallet(releaseMatch[1]);
+      const amount = w.pending;
+      w.available += w.pending; w.pending = 0;
+      log("wallet_release", user.id, { professionalId: releaseMatch[1], amount });
+      saveAll();
+      return sendJSON(res, 200, { ok: true, wallet: w });
+    }
+
+    // ================= LITIGES =================
+    if (pathname === "/api/disputes" && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      const body = await readBody(req);
+      const reqObj = requests.find(r => r.id === body.requestId);
+      if (!reqObj) return sendJSON(res, 404, { error: "Demande introuvable." });
+      const pro = professionals.find(p => p.id === reqObj.professionalId);
+      const isClient = reqObj.clientId === user.id;
+      const isPro = pro && pro.userId === user.id;
+      if (!isClient && !isPro) return sendJSON(res, 403, { error: "Vous n'êtes pas partie prenante de cette demande." });
+      if (!body.motif || !body.description) return sendJSON(res, 400, { error: "motif et description requis." });
+      const d = { id: newId("disp"), requestId: reqObj.id, openedBy: user.id, openedByRole: isClient ? "client" : "pro", motif: body.motif, description: body.description, status: "OUVERT", decision: null, createdAt: Date.now() };
+      disputes.push(d);
+      notify(null, "dispute", `Nouveau litige ouvert sur la demande ${reqObj.id}.`); // notif admin générique (userId null = broadcast admin, filtré côté lecture)
+      log("dispute_open", user.id, { disputeId: d.id });
+      saveAll();
+      return sendJSON(res, 201, { ok: true, dispute: d });
+    }
+    if (pathname === "/api/disputes/mine" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      const pro = professionals.find(p => p.userId === user.id);
+      return sendJSON(res, 200, disputes.filter(d => d.openedBy === user.id || (pro && requests.find(r => r.id === d.requestId && r.professionalId === pro.id))));
+    }
+    if (pathname === "/api/admin/disputes" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      return sendJSON(res, 200, disputes);
+    }
+    const disputeCloseMatch = pathname.match(/^\/api\/admin\/disputes\/([^\/]+)\/close$/);
+    if (disputeCloseMatch && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      const d = disputes.find(x => x.id === disputeCloseMatch[1]);
+      if (!d) return sendJSON(res, 404, { error: "Litige introuvable." });
+      const body = await readBody(req);
+      d.status = "CLOS"; d.decision = body.decision || ""; d.closedAt = Date.now();
+      log("dispute_close", user.id, { disputeId: d.id });
+      saveAll();
+      return sendJSON(res, 200, { ok: true, dispute: d });
+    }
+
+    // ================= NOTIFICATIONS =================
+    if (pathname === "/api/notifications" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      const list = notifications.filter(n => n.userId === user.id || (n.userId === null && user.role === "admin"));
+      return sendJSON(res, 200, list.slice().reverse().slice(0, 50));
+    }
+    if (pathname === "/api/notifications/read-all" && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      notifications.forEach(n => { if (n.userId === user.id) n.read = true; });
+      saveAll();
+      return sendJSON(res, 200, { ok: true });
+    }
+
     // ================= ADMIN : STATS =================
     if (pathname === "/api/admin/stats" && method === "GET") {
       const user = requireAuth(); if (!user) return;
       if (!requireRole(user, ["admin"])) return;
+      const totalCommissions = requests.reduce((n, r) => n + (r.payment && r.payment.commissionAmount ? r.payment.commissionAmount : 0), 0);
+      const totalVolume = requests.reduce((n, r) => n + (r.payment && r.payment.montant ? r.payment.montant : 0), 0);
       return sendJSON(res, 200, {
         totalUsers: users.length,
         totalPros: professionals.length,
         verifiedPros: professionals.filter(p => p.badge === "verifie" || p.badge === "certifie").length,
         pendingPros: professionals.filter(p => p.badge === "attente").length,
         totalRequests: requests.length,
-        totalMetiers: taxonomy.reduce((n, s) => n + s.cats.reduce((m, c) => m + c.metiers.length, 0), 0)
+        totalMetiers: taxonomy.reduce((n, s) => n + s.cats.reduce((m, c) => m + c.metiers.length, 0), 0),
+        totalVolume, totalCommissions,
+        pendingWithdrawals: withdrawals.filter(w => w.status === "PENDING").length,
+        openDisputes: disputes.filter(d => d.status === "OUVERT").length
       });
     }
 
