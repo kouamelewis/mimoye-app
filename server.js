@@ -168,8 +168,26 @@ const server = http.createServer(async (req, res) => {
 
   try {
     // ---- FRONTEND STATIQUE ----
+    // Tolérant à l'emplacement du fichier : cherche d'abord dans /public, puis à la racine
+    // du projet. Cela évite les erreurs fréquentes liées à l'upload manuel sur GitHub, où le
+    // sous-dossier "public/" n'est parfois pas recréé et le fichier atterrit à la racine.
     if (method === "GET" && (pathname === "/" || pathname === "/index.html")) {
-      const html = fs.readFileSync(path.join(PUBLIC_DIR, "mimoye-app.html"));
+      const candidates = [
+        path.join(PUBLIC_DIR, "mimoye-app.html"),
+        path.join(__dirname, "mimoye-app.html"),
+        path.join(__dirname, "public", "mimoye-app.html")
+      ];
+      const found = candidates.find(p => fs.existsSync(p));
+      if (!found) {
+        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+        return res.end(
+          "Fichier mimoye-app.html introuvable.\n\n" +
+          "Emplacements vérifiés :\n" + candidates.map(c => " - " + c).join("\n") +
+          "\n\nVérifie que mimoye-app.html a bien été téléversé sur GitHub, " +
+          "soit dans un dossier public/, soit à la racine du dépôt, à côté de server.js."
+        );
+      }
+      const html = fs.readFileSync(found);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       return res.end(html);
     }
