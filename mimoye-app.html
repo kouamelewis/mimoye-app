@@ -643,8 +643,37 @@ let currentUser = null; // { id, email, role, name, phone }
 let state = { screen: null, selectedProId: null, cache: {} };
 
 // =====================================================================
-// NAVIGATION HAUT NIVEAU
+// NAVIGATION HAUT NIVEAU + GESTION DU BOUTON RETOUR (History API)
+// -----------------------------------------------------------------------
+// Chaque écran devient une entrée d'historique réelle (history.pushState).
+// La touche/geste "Retour" du smartphone déclenche l'événement navigateur
+// "popstate" : au lieu de quitter l'application (comportement par défaut
+// d'un site web classique sans gestion d'historique), on revient à l'écran
+// précédent de MIMOYE. L'utilisateur ne sort du site que lorsqu'il n'y a
+// plus aucun écran précédent dans l'historique de navigation.
 // =====================================================================
+let suppressHistoryPush = false;
+let historyStarted = false;
+function pushHistory(navState, label) {
+  if (suppressHistoryPush) return;
+  if (!historyStarted) { historyStarted = true; history.replaceState(navState, "", "#" + (label || navState.view)); return; }
+  history.pushState(navState, "", "#" + (label || navState.view));
+}
+window.addEventListener("popstate", (e) => {
+  suppressHistoryPush = true;
+  const s = e.state;
+  if (!s || s.view === "landing") {
+    showView("landingView"); renderHeader();
+  } else if (s.view === "auth") {
+    showView("authView"); setAuthTab(s.tab || "login");
+  } else if (s.view === "app" && currentUser) {
+    showView("appView"); setScreen(s.screen, true);
+  } else {
+    showView("landingView"); renderHeader();
+  }
+  suppressHistoryPush = false;
+});
+
 function showView(id) {
   ["landingView", "authView", "appView"].forEach(v => document.getElementById(v).style.display = "none");
   document.getElementById(id).style.display = (id === "appView") ? "flex" : "block";
@@ -654,7 +683,10 @@ function showView(id) {
 
 function goHome() {
   if (currentUser) { enterAppForRole(currentUser.role); }
-  else { showView("landingView"); renderHeader(); }
+  else {
+    showView("landingView"); renderHeader();
+    pushHistory({ view: "landing" }, "accueil");
+  }
 }
 
 async function checkAuth() {
@@ -665,6 +697,8 @@ async function checkAuth() {
   } else {
     currentUser = null;
     showView("landingView");
+    historyStarted = true;
+    history.replaceState({ view: "landing" }, "", "#accueil");
   }
   renderHeader();
 }
@@ -692,6 +726,7 @@ function showAuth(tab, rolePreset) {
   authRolePreset = rolePreset || null;
   showView("authView");
   setAuthTab(tab || "login");
+  pushHistory({ view: "auth", tab: tab || "login" }, "connexion");
 }
 function setAuthTab(tab) {
   authTab = tab;
@@ -835,6 +870,7 @@ const SCREENS = {
     { id: "verifications", title: "File de vérification", desc: "Validation des dossiers professionnels." },
     { id: "tarification", title: "Tarification & commissions", desc: "Paramétrage des commissions par catégorie." },
     { id: "retraits", title: "Retraits professionnels", desc: "Demandes de retrait à valider." },
+    { id: "paiements-wave", title: "Paiements Wave à confirmer", desc: "Vérifier manuellement les envois Wave déclarés par les clients." },
     { id: "admin-litiges", title: "Litiges", desc: "Examiner et clôturer les litiges signalés." },
     { id: "contacts", title: "Contacts professionnels", desc: "Coordonnées privées — réservé à l'administration." },
     { id: "profil", title: "Mon profil", desc: "Informations personnelles et mot de passe." }
@@ -861,7 +897,7 @@ function chemin(parts) {
   document.getElementById("chemin").innerHTML = parts.map((p, i) => (i > 0 ? '<span class="sep">/</span>' : '') + `<span class="seg">${p}</span>`).join(" ");
 }
 
-async function setScreen(id) {
+async function setScreen(id, fromHistory) {
   state.screen = id;
   document.getElementById("content").innerHTML = `<div style="padding:40px;color:#8a8272;font-size:13px;">Chargement…</div>`;
   renderSidebar();
@@ -869,6 +905,7 @@ async function setScreen(id) {
   document.getElementById("screenTitle").textContent = meta.title;
   document.getElementById("screenDesc").textContent = meta.desc;
   chemin([roleLabel(currentUser.role), meta.title]);
+  if (!fromHistory) pushHistory({ view: "app", screen: id }, id);
   try {
     const html = await RENDERERS[id]();
     document.getElementById("content").innerHTML = html;
@@ -876,7 +913,7 @@ async function setScreen(id) {
     document.getElementById("content").innerHTML = `<div class="err-box">${e.message}</div>`;
   }
 }
-function refresh() { setScreen(state.screen); }
+function refresh() { setScreen(state.screen, true); }
 
 function badgeHTML(type) {
   if (type === "verifie") return `<span class="badge badge-verifie">● Vérifié</span>`;
@@ -897,9 +934,20 @@ function stampHTML(badge) {
 async function screenResultats() {
   const pros = await api("/api/professionals");
   state.cache.pros = pros;
-  if (!pros.length) return `<div class="card">Aucun professionnel disponible pour le moment.</div>`;
-  return `<div style="display:flex;flex-direction:column;gap:12px;">
-    ${pros.map(p => `
+  const taxonomy = state.cache.taxonomy || (state.cache.taxonomy = await api("/api/taxonomy"));
+  const filterHTML = `<div class="field" style="max-width:320px;margin-bottom:16px;">
+    <label class="field-label">Filtrer par métier</label>
+    <select id="metier-filter" onchange="filterResultats()">
+      <option value="">Tous les métiers</option>
+      ${taxonomy.map(sect => `<optgroup label="${sect.secteur}">${sect.cats.flatMap(c=>c.metiers).map(m=>`<option value="${m}">${m}</option>`).join("")}</optgroup>`).join("")}
+    </select>
+  </div>`;
+  if (!pros.length) return filterHTML + `<div class="card">Aucun professionnel disponible pour le moment.</div>`;
+  return filterHTML + `<div id="resultatsList" style="display:flex;flex-direction:column;gap:12px;">${renderProCards(pros)}</div>`;
+}
+function renderProCards(pros) {
+  if (!pros.length) return `<div class="card">Aucun professionnel ne correspond à ce métier pour le moment.</div>`;
+  return pros.map(p => `
     <div class="pro-card">
       <div class="avatar">${p.init}</div>
       <div style="flex:1;">
@@ -917,8 +965,12 @@ async function screenResultats() {
           <button class="btn btn-primary btn-sm" onclick="viewPro('${p.id}')">Voir le profil</button>
         </div>
       </div>
-    </div>`).join("")}
-  </div>`;
+    </div>`).join("");
+}
+function filterResultats() {
+  const metier = document.getElementById("metier-filter").value;
+  const filtered = metier ? state.cache.pros.filter(p => p.metier === metier) : state.cache.pros;
+  document.getElementById("resultatsList").innerHTML = renderProCards(filtered);
 }
 function viewPro(id) { state.selectedProId = id; setScreen("fiche-pro"); }
 
@@ -977,12 +1029,17 @@ const STATUS_LABEL = {
   SEARCHING: "En attente de devis", QUOTE_SENT: "Devis reçu", QUOTE_ACCEPTED: "Devis accepté",
   PAID: "Payée", CANCELLED: "Annulée"
 };
+const PAYMENT_STATUS_LABEL = {
+  PENDING_CONFIRMATION: "En attente de votre envoi Wave", PENDING_ADMIN_VERIFICATION: "Envoi déclaré — vérification MIMOYE en cours",
+  SUCCESS: "Paiement confirmé", FAILED: "Paiement non confirmé"
+};
 async function screenSuivi() {
   const list = await api("/api/requests/mine");
   const pros = state.cache.pros || await api("/api/professionals");
   if (!list.length) return `<div class="card">Aucune demande pour le moment. Rendez-vous dans "Rechercher un professionnel" pour en créer une.</div>`;
   return list.slice().reverse().map(r => {
     const pro = pros.find(p => p.id === r.professionalId);
+    const pay = r.payment;
     return `<div class="card section-gap">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div><div style="font-weight:700;font-size:14px;">${pro ? pro.name : "Professionnel"}</div>
@@ -990,9 +1047,17 @@ async function screenSuivi() {
         <span class="badge badge-neutre">${STATUS_LABEL[r.status] || r.status}</span>
       </div>
       ${r.quote ? `<div class="hr-note section-gap">Devis proposé : <b style="color:var(--ink);font-family:var(--mono);">${r.quote.amount} FCFA</b> — ${r.quote.note || ""}</div>` : ""}
+      ${pay && pay.status === "PENDING_CONFIRMATION" ? `
+      <div class="card section-gap" style="background:var(--stone);border-style:dashed;">
+        <div style="font-size:13px;">Envoyez <b>${pay.montant} FCFA</b> via l'application Wave au numéro marchand MIMOYE : <b style="font-family:var(--mono);">${pay.waveNumber}</b>.</div>
+        <div class="field section-gap"><label class="field-label">Référence de votre transaction Wave</label><input type="text" id="wave-ref-${r.id}" placeholder="Ex : WAVE-TX-XXXXXX"></div>
+        <button class="btn btn-primary btn-sm" onclick="confirmWaveSent('${r.id}')">J'ai envoyé le paiement</button>
+      </div>` : ""}
+      ${pay && pay.status === "PENDING_ADMIN_VERIFICATION" ? `<div class="hr-note section-gap">⏳ Référence transmise (${pay.clientReference || "—"}). En attente de vérification par l'équipe MIMOYE.</div>` : ""}
+      ${pay && pay.status === "FAILED" ? `<div class="hr-note section-gap" style="color:var(--danger);">Paiement non confirmé${pay.rejectReason ? " : " + pay.rejectReason : ""}. <button class="btn btn-artisan btn-sm" onclick="initiateWavePayment('${r.id}')">Réessayer</button></div>` : ""}
       <div style="display:flex;gap:10px;margin-top:14px;">
         ${r.status === "QUOTE_SENT" ? `<button class="btn btn-primary btn-sm" onclick="acceptQuote('${r.id}')">Accepter le devis</button>` : ""}
-        ${r.status === "QUOTE_ACCEPTED" ? `<button class="btn btn-artisan btn-sm" onclick="payRequest('${r.id}')">Payer (${r.quote ? r.quote.amount : ''} FCFA)</button>` : ""}
+        ${r.status === "QUOTE_ACCEPTED" && !pay ? `<button class="btn btn-artisan btn-sm" onclick="initiateWavePayment('${r.id}')">Payer par Wave (${r.quote ? r.quote.amount : ''} FCFA)</button>` : ""}
         ${r.status === "PAID" && !r.rating ? `<button class="btn btn-secondary btn-sm" onclick="rateRequest('${r.id}')">Évaluer le professionnel</button>` : ""}
         ${r.rating ? `<span class="stars">${"★".repeat(r.rating.stars)}${"☆".repeat(5-r.rating.stars)}</span>` : ""}
       </div>
@@ -1000,7 +1065,16 @@ async function screenSuivi() {
   }).join("");
 }
 async function acceptQuote(id) { try { await apiPost(`/api/requests/${id}/accept`); refresh(); } catch(e){ alert(e.message); } }
-async function payRequest(id) { try { const r = await apiPost(`/api/requests/${id}/pay`, {mode:"mobile_money"}); alert(r.warning || "Paiement effectué."); refresh(); } catch(e){ alert(e.message); } }
+async function initiateWavePayment(id) {
+  try { await apiPost(`/api/requests/${id}/pay-initiate`); refresh(); }
+  catch(e){ alert(e.message); }
+}
+async function confirmWaveSent(id) {
+  const waveReference = document.getElementById("wave-ref-" + id).value.trim();
+  if (!waveReference) { alert("Merci d'indiquer la référence de votre transaction Wave."); return; }
+  try { await apiPost(`/api/requests/${id}/pay-confirm-sent`, { waveReference }); refresh(); }
+  catch(e){ alert(e.message); }
+}
 async function rateRequest(id) {
   const stars = prompt("Note sur 5 :", "5");
   if (!stars) return;
@@ -1015,10 +1089,10 @@ async function screenDashboardPro() {
   const data = await api("/api/professionals/me");
   const p = data.professional;
   if (!p) {
-    return `<div class="card" style="max-width:560px;">
+    const html = `<div class="card" style="max-width:560px;">
       <div class="field-label" style="margin-bottom:14px;">Compléter mon profil professionnel</div>
       <div id="proMsg"></div>
-      <div class="field"><label class="field-label">Métier</label><input type="text" id="pro-metier" placeholder="Ex : Plombier"></div>
+      <div class="field"><label class="field-label">Métier</label><select id="pro-metier"></select></div>
       <div class="field"><label class="field-label">Zone d'intervention</label><input type="text" id="pro-zone" placeholder="Ex : Cocody, Abidjan"></div>
       <div class="field"><label class="field-label">Téléphone</label><input type="text" id="pro-tel" placeholder="+225 ..."></div>
       <div class="field"><label class="field-label">WhatsApp (optionnel)</label><input type="text" id="pro-whatsapp" placeholder="+225 ..."></div>
@@ -1027,6 +1101,8 @@ async function screenDashboardPro() {
       <button class="btn btn-primary btn-block" onclick="submitProProfile()">Envoyer mon dossier</button>
       <div class="hr-note">Votre dossier sera examiné par l'administration avant d'apparaître comme vérifié auprès des clients. Vos coordonnées ne sont jamais visibles par les clients — seule l'administration peut les consulter et, si elle le juge utile, les communiquer.</div>
     </div>`;
+    setTimeout(() => populateMetierSelect("pro-metier"), 0);
+    return html;
   }
   return `<div class="card" style="max-width:560px;">
     <div style="display:flex;gap:16px;align-items:center;">
@@ -1038,15 +1114,25 @@ async function screenDashboardPro() {
     <div class="section-gap">${badgeHTML(p.badge)}</div>
     ${p.badge === "attente" ? `<div class="hr-note section-gap">Votre dossier est en cours d'examen par l'administration MIMOYE.</div>` : ""}
     ${p.badge === "refuse" ? `<div class="hr-note section-gap" style="color:var(--danger);">Votre dossier a été refusé. Vous pouvez mettre à jour vos informations ci-dessous et le soumettre à nouveau.</div>` : ""}
-    <div class="section-gap"><button class="btn btn-secondary btn-sm" onclick="editProProfile()">Modifier mes informations</button></div>
+    <div class="section-gap"><button class="btn btn-secondary btn-sm" onclick="editProProfile('${p.metier.replace(/'/g,"\\'")}')">Modifier mes informations</button></div>
   </div>
   <div class="card section-gap" style="max-width:560px;" id="proEditBox"></div>`;
 }
-function editProProfile() {
+// Construit un <select> avec des <optgroup> par secteur, à partir du vrai référentiel
+// métiers (administré depuis le tableau de bord admin) — plus de liste figée en dur.
+async function populateMetierSelect(selectId, selected) {
+  const el = document.getElementById(selectId);
+  if (!el) return;
+  const taxonomy = state.cache.taxonomy || (state.cache.taxonomy = await api("/api/taxonomy"));
+  el.innerHTML = taxonomy.map(sect => `<optgroup label="${sect.secteur}">${
+    sect.cats.flatMap(c => c.metiers).map(m => `<option value="${m}" ${m===selected?'selected':''}>${m}</option>`).join("")
+  }</optgroup>`).join("");
+}
+function editProProfile(currentMetier) {
   document.getElementById("proEditBox").innerHTML = `
     <div class="field-label" style="margin-bottom:14px;">Mettre à jour mon dossier</div>
     <div id="proMsg"></div>
-    <div class="field"><label class="field-label">Métier</label><input type="text" id="pro-metier"></div>
+    <div class="field"><label class="field-label">Métier</label><select id="pro-metier"></select></div>
     <div class="field"><label class="field-label">Zone d'intervention</label><input type="text" id="pro-zone"></div>
     <div class="field"><label class="field-label">Téléphone</label><input type="text" id="pro-tel"></div>
     <div class="field"><label class="field-label">WhatsApp (optionnel)</label><input type="text" id="pro-whatsapp"></div>
@@ -1054,6 +1140,7 @@ function editProProfile() {
     <div class="field"><label class="field-label">Tarif indicatif</label><input type="text" id="pro-tarif"></div>
     <button class="btn btn-primary btn-block" onclick="submitProProfile()">Envoyer la mise à jour</button>
     <div class="hr-note">Une modification repasse votre dossier en attente de vérification.</div>`;
+  populateMetierSelect("pro-metier", currentMetier);
 }
 async function submitProProfile() {
   const metier = document.getElementById("pro-metier").value.trim();
@@ -1309,6 +1396,29 @@ async function screenRetraits() {
 }
 async function wdAction(id, action) { try { await apiPost(`/api/admin/withdrawals/${id}/${action}`); refresh(); } catch(e){ alert(e.message); } }
 
+async function screenPaiementsWave() {
+  const list = await api("/api/admin/payments/pending");
+  if (!list.length) return `<div class="card">Aucun paiement Wave en attente de vérification.</div>`;
+  return list.map(r => `<div class="card section-gap">
+    <div style="display:flex;justify-content:space-between;">
+      <div>
+        <div style="font-weight:700;font-size:14px;">${r.payment.montant} FCFA — demande ${r.id}</div>
+        <div style="font-size:12px;color:#6b6459;margin-top:4px;">Référence Wave déclarée par le client : <b style="font-family:var(--mono);">${r.payment.clientReference || "—"}</b></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <button class="btn btn-sm btn-primary" onclick="confirmWavePayment('${r.id}')">Confirmer (vérifié dans l'app Wave)</button>
+        <button class="btn btn-sm btn-ghost" onclick="rejectWavePayment('${r.id}')">Refuser</button>
+      </div>
+    </div>
+    <div class="hr-note section-gap">Vérifiez la réception réelle des ${r.payment.montant} FCFA dans l'application Wave MIMOYE avant de confirmer.</div>
+  </div>`).join("");
+}
+async function confirmWavePayment(id) { try { await apiPost(`/api/admin/requests/${id}/confirm-payment`); refresh(); } catch(e){ alert(e.message); } }
+async function rejectWavePayment(id) {
+  const reason = prompt("Motif du refus :", "Référence introuvable dans l'historique Wave"); if (reason === null) return;
+  try { await apiPost(`/api/admin/requests/${id}/reject-payment`, { reason }); refresh(); } catch(e){ alert(e.message); }
+}
+
 async function screenAdminLitiges() {
   const list = await api("/api/admin/disputes");
   return `<div class="card">
@@ -1371,7 +1481,8 @@ const RENDERERS = {
   "verifications": screenVerifications, "tarification": screenTarification,
   "profil": screenProfil, "notifications": screenNotifications,
   "portefeuille": screenPortefeuille, "litiges": screenLitiges,
-  "retraits": screenRetraits, "admin-litiges": screenAdminLitiges, "contacts": screenContacts
+  "retraits": screenRetraits, "admin-litiges": screenAdminLitiges, "contacts": screenContacts,
+  "paiements-wave": screenPaiementsWave
 };
 
 checkAuth();

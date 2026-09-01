@@ -600,41 +600,93 @@ const server = http.createServer(async (req, res) => {
       saveAll();
       return sendJSON(res, 200, { ok: true, request: reqObj });
     }
-    const payMatch = pathname.match(/^\/api\/requests\/([^\/]+)\/pay$/);
-    if (payMatch && method === "POST") {
+    // ================= PAIEMENT WAVE — CIRCUIT RÉEL SANS API (vérification manuelle) =================
+    // Pas de clé API Wave disponible (voir GUIDE_EMAIL_SMS_WAVE.md), donc pas d'appel automatique
+    // possible. En revanche, WAVE_PAYMENT_NUMBER est un vrai numéro marchand Wave Business :
+    // le client envoie réellement l'argent via l'app Wave sur ce numéro, indique la référence
+    // de sa transaction Wave, et un administrateur MIMOYE confirme après vérification manuelle
+    // dans son application Wave (historique des réceptions). Ce n'est PAS une simulation : c'est
+    // un vrai paiement Wave, avec une étape de contrôle humaine au lieu d'un webhook automatique.
+    // Dès qu'une intégration API réelle est possible (credentials + doc Wave obtenus), ces deux
+    // étapes pourront être automatisées sans changer le modèle de données.
+    const payInitMatch = pathname.match(/^\/api\/requests\/([^\/]+)\/pay-initiate$/);
+    if (payInitMatch && method === "POST") {
       const user = requireAuth(); if (!user) return;
-      const reqObj = requests.find(r => r.id === payMatch[1]);
+      const reqObj = requests.find(r => r.id === payInitMatch[1]);
       if (!reqObj) return sendJSON(res, 404, { error: "Demande introuvable." });
       if (reqObj.clientId !== user.id) return sendJSON(res, 403, { error: "Accès refusé." });
       if (reqObj.status !== "QUOTE_ACCEPTED") return sendJSON(res, 400, { error: "Aucun devis accepté à payer pour cette demande." });
-      const body = await readBody(req);
-      const pro = professionals.find(p => p.id === reqObj.professionalId);
+      if (!WAVE_CONFIG.paymentNumber) return sendJSON(res, 503, { error: "Numéro marchand Wave non configuré côté serveur (WAVE_PAYMENT_NUMBER)." });
       const montant = Number(reqObj.quote && reqObj.quote.amount) || 0;
-      const tauxCommission = commissionRateFor(reqObj.professionalMetier || (pro ? pro.metier : ""));
+      reqObj.payment = { status: "PENDING_CONFIRMATION", mode: "wave", waveNumber: WAVE_CONFIG.paymentNumber, montant, reference: newId("txn"), initiatedAt: Date.now() };
+      log("payment_wave_initiated", user.id, { requestId: reqObj.id, montant });
+      saveAll();
+      return sendJSON(res, 200, { ok: true, request: reqObj, instructions: `Envoyez ${montant} FCFA via l'application Wave au numéro marchand MIMOYE : ${WAVE_CONFIG.paymentNumber}. Une fois l'envoi effectué, indiquez la référence de votre transaction Wave pour confirmation.` });
+    }
+    const payConfirmClientMatch = pathname.match(/^\/api\/requests\/([^\/]+)\/pay-confirm-sent$/);
+    if (payConfirmClientMatch && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      const reqObj = requests.find(r => r.id === payConfirmClientMatch[1]);
+      if (!reqObj) return sendJSON(res, 404, { error: "Demande introuvable." });
+      if (reqObj.clientId !== user.id) return sendJSON(res, 403, { error: "Accès refusé." });
+      if (!reqObj.payment || reqObj.payment.status !== "PENDING_CONFIRMATION") return sendJSON(res, 400, { error: "Aucun paiement en attente pour cette demande." });
+      const body = await readBody(req);
+      reqObj.payment.clientReference = (body.waveReference || "").trim();
+      reqObj.payment.status = "PENDING_ADMIN_VERIFICATION";
+      reqObj.payment.declaredAt = Date.now();
+      notify(null, "payment", `Un client déclare avoir payé ${reqObj.payment.montant} FCFA via Wave pour la demande ${reqObj.id} — référence indiquée : ${reqObj.payment.clientReference || "non fournie"}. Vérification requise.`);
+      log("payment_wave_declared", user.id, { requestId: reqObj.id, reference: reqObj.payment.clientReference });
+      saveAll();
+      return sendJSON(res, 200, { ok: true, request: reqObj });
+    }
+    if (pathname === "/api/admin/payments/pending" && method === "GET") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      return sendJSON(res, 200, requests.filter(r => r.payment && r.payment.status === "PENDING_ADMIN_VERIFICATION"));
+    }
+    const payConfirmAdminMatch = pathname.match(/^\/api\/admin\/requests\/([^\/]+)\/confirm-payment$/);
+    if (payConfirmAdminMatch && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      const reqObj = requests.find(r => r.id === payConfirmAdminMatch[1]);
+      if (!reqObj || !reqObj.payment || reqObj.payment.status !== "PENDING_ADMIN_VERIFICATION") return sendJSON(res, 400, { error: "Aucun paiement à confirmer pour cette demande." });
+      const pro = professionals.find(p => p.id === reqObj.professionalId);
+      const montant = reqObj.payment.montant;
+      const tauxCommission = commissionRateFor(pro ? pro.metier : "");
       const commissionAmount = Math.round(montant * tauxCommission / 100);
       const montantPro = montant - commissionAmount;
-      // MODE SANDBOX tant que WAVE_API_KEY / WAVE_API_SECRET ne sont pas configurées (voir
-      // WAVE_CONFIG) — le CLIENT PAIE MIMOYE (jamais directement le professionnel) : le calcul
-      // de commission et le crédit du portefeuille professionnel sont réels et tracés dans les
-      // deux cas. Seul l'encaissement réel de l'argent est simulé sans contrat marchand Wave actif.
-      // Une fois WAVE_API_KEY/WAVE_API_SECRET définies, brancher ici l'appel réel à l'API Wave
-      // (création de charge sur WAVE_CONFIG.paymentNumber) et vérifier le statut via webhook
-      // (voir /api/webhooks/wave ci-dessous) avant de marquer SUCCESS.
-      reqObj.payment = {
-        status: "SUCCESS", mode: body.mode || "wave", simulated: !WAVE_CONFIG.liveReady, at: Date.now(),
-        reference: newId("txn"), montant, tauxCommission, commissionAmount, montantPro
-      };
+      reqObj.payment.status = "SUCCESS";
+      reqObj.payment.confirmedBy = user.id;
+      reqObj.payment.confirmedAt = Date.now();
+      reqObj.payment.tauxCommission = tauxCommission;
+      reqObj.payment.commissionAmount = commissionAmount;
+      reqObj.payment.montantPro = montantPro;
       reqObj.status = "PAID";
       if (pro) {
         const w = getWallet(pro.id);
-        w.pending += montantPro; // reversé après délai / validation admin (voir /api/pro/withdrawals)
-        notify(pro.userId, "payment", `Paiement reçu pour une prestation : ${montantPro} FCFA seront crédités à votre portefeuille (commission MIMOYE : ${commissionAmount} FCFA).`);
+        w.pending += montantPro;
+        notify(pro.userId, "payment", `Paiement Wave confirmé pour une prestation : ${montantPro} FCFA seront crédités à votre portefeuille (commission MIMOYE : ${commissionAmount} FCFA).`);
       }
-      notify(user.id, "payment", `Votre paiement de ${montant} FCFA a été enregistré.`);
-      log("payment_sandbox", user.id, { requestId: reqObj.id, montant, commissionAmount, montantPro });
+      notify(reqObj.clientId, "payment", `Votre paiement Wave de ${montant} FCFA a été confirmé par MIMOYE.`);
+      log("payment_wave_confirmed", user.id, { requestId: reqObj.id, montant, commissionAmount, montantPro });
       saveAll();
-      return sendJSON(res, 200, { ok: true, request: reqObj, warning: WAVE_CONFIG.liveReady ? undefined : "Paiement simulé (mode sandbox, API Wave non configurée) — aucune vraie transaction bancaire n'a eu lieu. Le calcul de commission et le portefeuille sont réels." });
+      return sendJSON(res, 200, { ok: true, request: reqObj });
     }
+    const payRejectAdminMatch = pathname.match(/^\/api\/admin\/requests\/([^\/]+)\/reject-payment$/);
+    if (payRejectAdminMatch && method === "POST") {
+      const user = requireAuth(); if (!user) return;
+      if (!requireRole(user, ["admin"])) return;
+      const reqObj = requests.find(r => r.id === payRejectAdminMatch[1]);
+      if (!reqObj || !reqObj.payment) return sendJSON(res, 400, { error: "Aucun paiement pour cette demande." });
+      reqObj.payment.status = "FAILED";
+      const body = await readBody(req);
+      reqObj.payment.rejectReason = body.reason || "";
+      notify(reqObj.clientId, "payment", `Votre déclaration de paiement Wave n'a pas pu être confirmée par MIMOYE${body.reason ? " : " + body.reason : ""}. Merci de réessayer ou de nous contacter.`);
+      log("payment_wave_rejected", user.id, { requestId: reqObj.id, reason: body.reason || "" });
+      saveAll();
+      return sendJSON(res, 200, { ok: true, request: reqObj });
+    }
+
     const rateMatch = pathname.match(/^\/api\/requests\/([^\/]+)\/rate$/);
     if (rateMatch && method === "POST") {
       const user = requireAuth(); if (!user) return;
